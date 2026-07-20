@@ -12,50 +12,65 @@ export interface Translations {
   privacyBadge: string;
   localAiBadge: string;
 
-  // Steps
+  // Steps HUD
   step1Title: string;
   step2Title: string;
   step3Title: string;
 
   // Step 1: Select Preset & Upload
-  selectStandard: string;
-  selectStandardDesc: string;
-  choosePhoto: string;
-  uploadFromDevice: string;
-  takePhoto: string;
-  samplePhotos: string;
-  dragDropText: string;
-  clickToBrowse: string;
-  orChooseSample: string;
-  customWidth: string;
-  customHeight: string;
-  customFacePct: string;
-  samplePhotoLabel: string;
+  selectPresetTitle: string;
+  choosePhotoTitle: string;
+  dragDropTitle: string;
+  dragDropSub: string;
+  browseBtn: string;
+  supportedFormats: string;
+  useCameraBtn: string;
+  tryAiTitle: string;
+  tryAiDesc: string;
+  customWidthLabel: string;
+  customHeightLabel: string;
+  customFacePctLabel: string;
   maleSample: string;
   femaleSample: string;
   childSample: string;
 
+  // Passport Photo Guidelines Card
+  guidelinesTitle: string;
+  guidelineItem1: string;
+  guidelineItem2: string;
+  guidelineItem3: string;
+  guidelineItem4: string;
+
   // Step 2: Editor & AI
+  editingPresetLabel: string;
+  chooseAnotherPhoto: string;
+  localAiWorking: string;
   aiAnalyzing: string;
   aiFaceFound: string;
   aiSmartFallback: string;
   aiNoFace: string;
-  aiProcessingComplete: string;
+  aiAutoAlignedBanner: string;
+  aiManualFallbackBanner: string;
   topHead: string;
   eyeLine: string;
   chin: string;
   toggleGuides: string;
   resetTransform: string;
-  removeBg: string;
-  bgColor: string;
-  adjustments: string;
+  nationalStandardLabel: string;
+  removeBgToggle: string;
+  bgColorLabel: string;
+  lightAndColorLabel: string;
   zoom: string;
   rotate: string;
   brightness: string;
   contrast: string;
   saturation: string;
   nextPrintGrid: string;
-  backToStep1: string;
+
+  // Camera Component
+  cameraLoading: string;
+  cameraError: string;
+  captureBtn: string;
 
   // Background Colors
   bgWhite: string;
@@ -64,20 +79,26 @@ export interface Translations {
   bgLightGrey: string;
   bgTransparent: string;
 
-  // Step 3: Printing Grid
+  // Step 3: Printing Grid & Export
+  singlePhotoCompleted: string;
+  singlePhotoSpecs: string;
+  downloadSingleBtn: string;
   printGridTitle: string;
   printGridDesc: string;
-  downloadSingle: string;
-  downloadSheet: string;
-  printNow: string;
-  paperSize: string;
+  downloadSheetBtn: string;
+  printNowBtn: string;
+  paperSizeLabel: string;
   paperA4: string;
   paper4x6: string;
   paper5x7: string;
-  photoCount: string;
-  copies: string;
+  photoCountLabel: string;
+  copiesUnit: string;
   backToEditor: string;
   createNew: string;
+
+  // Footer
+  footerCopyright: string;
+  footerPrivacyText: string;
 
   // Presets
   presetVi4x6Name: string;
@@ -99,47 +120,60 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     privacyBadge: 'Bảo mật 100% (Offline)',
     localAiBadge: 'AI CỤC BỘ',
 
-    step1Title: '1. Chọn Chuẩn Ảnh & Tải Ảnh',
-    step2Title: '2. Căn Chỉnh & Tách Nền AI',
-    step3Title: '3. Xuất & In Tấm Ảnh',
+    step1Title: '1. Chọn Chuẩn & Tải Ảnh',
+    step2Title: '2. Căn Chỉnh & Tách Nền',
+    step3Title: '3. Xếp Tấm In & Tải Về',
 
-    selectStandard: 'Chọn Tiêu Chuẩn Hộ Chiếu / Thẻ',
-    selectStandardDesc: 'Mỗi quốc gia và loại giấy tờ yêu cầu kích thước và tỉ lệ khuôn mặt khác nhau.',
-    choosePhoto: 'Tải Ảnh Của Bạn Lên',
-    uploadFromDevice: 'Tải ảnh từ thiết bị',
-    takePhoto: 'Chụp ảnh bằng Camera',
-    samplePhotos: 'Hoặc dùng ảnh mẫu thử nghiệm:',
-    dragDropText: 'Kéo & thả ảnh vào đây',
-    clickToBrowse: 'hoặc bấm để chọn tệp từ máy tính / điện thoại',
-    orChooseSample: 'Chọn ảnh mẫu thử nghiệm nhanh',
-    customWidth: 'Rộng (mm)',
-    customHeight: 'Cao (mm)',
-    customFacePct: 'Tỉ lệ mặt (%)',
-    samplePhotoLabel: 'Ảnh Mẫu (sample.jpg)',
+    selectPresetTitle: 'Chọn chuẩn kích thước ảnh:',
+    choosePhotoTitle: 'Tải lên hình chân dung:',
+    dragDropTitle: 'Kéo thả file ảnh vào đây',
+    dragDropSub: 'hoặc',
+    browseBtn: 'Chọn File Ảnh Từ Máy',
+    supportedFormats: 'Hỗ trợ định dạng JPG, PNG, WEBP. Ảnh sắc nét, hướng thẳng.',
+    useCameraBtn: 'Sử dụng Camera trực tiếp của thiết bị',
+    tryAiTitle: 'Trải nghiệm thử AI ngay:',
+    tryAiDesc: 'Bạn không có sẵn ảnh chân dung? Hãy click chọn một ảnh mẫu chất lượng cao dưới đây để trải nghiệm tức thì khả năng căn chỉnh khuôn mặt và tách phông nền đỉnh cao:',
+    customWidthLabel: 'Chiều rộng (mm):',
+    customHeightLabel: 'Chiều cao (mm):',
+    customFacePctLabel: 'Tỉ lệ khuôn mặt đầu chiếm (%):',
     maleSample: 'Mẫu Nam',
     femaleSample: 'Mẫu Nữ',
     childSample: 'Mẫu Trẻ Em',
 
+    guidelinesTitle: 'Yêu cầu ảnh chụp hộ chiếu đạt chuẩn:',
+    guidelineItem1: 'Khuôn mặt hướng thẳng, nhìn trực diện vào ống kính.',
+    guidelineItem2: 'Nét mặt trung tính, không cười hở răng, mở mắt rõ.',
+    guidelineItem3: 'Ánh sáng phân bổ đều trên mặt, không đổ bóng đậm.',
+    guidelineItem4: 'Không đeo kính râm, không đội mũ (trừ trang phục tôn giáo).',
+
+    editingPresetLabel: 'Đang chỉnh sửa:',
+    chooseAnotherPhoto: 'Chọn ảnh khác',
+    localAiWorking: 'AI Đang Làm Việc Cục Bộ...',
     aiAnalyzing: 'AI đang phân tích khuôn mặt & tách nền...',
     aiFaceFound: 'Đã phát hiện khuôn mặt! Đang căn chỉnh trục mắt và tỉ lệ chuẩn...',
     aiSmartFallback: 'Đã tự động định vị khuôn mặt từ nhận diện chân dung!',
     aiNoFace: 'Không tìm thấy khuôn mặt rõ ràng. Chuyển sang căn chỉnh thủ công.',
-    aiProcessingComplete: 'Xử lý AI thành công!',
+    aiAutoAlignedBanner: 'AI đã tự căn chỉnh khuôn mặt thẳng trục mắt và đúng kích cỡ!',
+    aiManualFallbackBanner: 'Không phát hiện khuôn mặt. Di chuyển thanh trượt để căn chỉnh thủ công.',
     topHead: 'Đỉnh đầu (Top Head)',
     eyeLine: 'Trục mắt (Eyes)',
     chin: 'Cằm (Chin)',
     toggleGuides: 'Đường hướng dẫn',
     resetTransform: 'Đặt lại trục',
-    removeBg: 'Tự động Tách nền AI',
-    bgColor: 'Màu nền thay thế',
-    adjustments: 'Điều chỉnh ánh sáng & màu sắc',
-    zoom: 'Thu phóng',
-    rotate: 'Xoay nghiêng',
-    brightness: 'Độ sáng',
-    contrast: 'Độ tương phản',
-    saturation: 'Độ bão hòa',
+    nationalStandardLabel: 'Tiêu chuẩn quốc gia:',
+    removeBgToggle: 'Tách nền phía sau bằng AI',
+    bgColorLabel: 'Màu phông nền thay thế:',
+    lightAndColorLabel: 'Điều chỉnh ánh sáng & màu sắc',
+    zoom: 'Thu phóng (Zoom)',
+    rotate: 'Xoay nghiêng (Rotate)',
+    brightness: 'Độ sáng (Brightness)',
+    contrast: 'Độ tương phản (Contrast)',
+    saturation: 'Độ bão hòa (Saturation)',
     nextPrintGrid: 'Tiếp tục: Dàn trang In ➜',
-    backToStep1: '← Chọn ảnh khác',
+
+    cameraLoading: 'Đang khởi động Camera...',
+    cameraError: 'Không thể truy cập Camera. Vui lòng cấp quyền truy cập trình duyệt.',
+    captureBtn: 'Chụp ảnh ngay',
 
     bgWhite: 'Trắng (White)',
     bgLightBlue: 'Xanh nhạt (Light Blue)',
@@ -147,19 +181,24 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     bgLightGrey: 'Xám sáng (Light Grey)',
     bgTransparent: 'Trong suốt (PNG)',
 
+    singlePhotoCompleted: 'Ảnh Đơn Lẻ Đã Hoàn Thành',
+    singlePhotoSpecs: 'File PNG chất lượng cao chuẩn in ấn',
+    downloadSingleBtn: 'Tải ảnh đơn lẻ chất lượng cao',
     printGridTitle: 'Dàn Trang In Ảnh Hộ Chiếu',
     printGridDesc: 'Tự động sắp xếp nhiều ảnh lên khổ giấy in tiêu chuẩn sẵn sàng mang đi in.',
-    downloadSingle: 'Tải 1 ảnh đơn (HQ)',
-    downloadSheet: 'Tải trang in (PNG)',
-    printNow: 'In ngay',
-    paperSize: 'Khổ giấy in',
+    downloadSheetBtn: 'Tải trang in (PNG)',
+    printNowBtn: 'In ngay',
+    paperSizeLabel: 'Khổ giấy in:',
     paperA4: 'Giấy A4 (210 x 297 mm)',
     paper4x6: 'Giấy in ảnh 4x6 inch (10x15 cm)',
     paper5x7: 'Giấy in ảnh 5x7 inch (13x18 cm)',
-    photoCount: 'Số lượng ảnh',
-    copies: 'tấm ảnh',
-    backToEditor: '← Chỉnh sửa lại',
+    photoCountLabel: 'Số lượng ảnh:',
+    copiesUnit: 'tấm ảnh',
+    backToEditor: 'Quay lại chỉnh sửa thêm',
     createNew: 'Tạo ảnh mới',
+
+    footerCopyright: '© 2026 AI Passport Photo Maker. Bản quyền được bảo lưu.',
+    footerPrivacyText: 'Bảo mật tuyệt đối: Toàn bộ quá trình tách nền & phân tích AI được thực hiện 100% offline tại trình duyệt của bạn. Chúng tôi không bao giờ tải ảnh chân dung của bạn lên bất kỳ máy chủ nào.',
 
     presetVi4x6Name: 'Ảnh Hộ chiếu Việt Nam (4x6 cm)',
     presetVi4x6Desc: 'Nền trắng. Đầu và vai thẳng. Đầu chiếm khoảng 70-80% chiều cao ảnh. Khoảng cách từ đỉnh đầu đến viền trên ảnh khoảng 2-4mm.',
@@ -179,47 +218,60 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     privacyBadge: '100% Private (Offline)',
     localAiBadge: 'LOCAL AI',
 
-    step1Title: '1. Select Preset & Upload Photo',
-    step2Title: '2. Align & Remove Background',
-    step3Title: '3. Export & Print Sheet',
+    step1Title: '1. Select Preset & Upload',
+    step2Title: '2. Align & Remove BG',
+    step3Title: '3. Layout & Export',
 
-    selectStandard: 'Choose Passport / Visa Standard',
-    selectStandardDesc: 'Different countries and documents require specific dimensions and head proportions.',
-    choosePhoto: 'Upload Your Photo',
-    uploadFromDevice: 'Upload from device',
-    takePhoto: 'Take a photo with Camera',
-    samplePhotos: 'Or try sample test photos:',
-    dragDropText: 'Drag & drop your photo here',
-    clickToBrowse: 'or click to browse files from computer / phone',
-    orChooseSample: 'Quick select a test sample photo',
-    customWidth: 'Width (mm)',
-    customHeight: 'Height (mm)',
-    customFacePct: 'Face Size (%)',
-    samplePhotoLabel: 'Sample Photo (sample.jpg)',
+    selectPresetTitle: 'Select photo dimensions preset:',
+    choosePhotoTitle: 'Upload portrait photo:',
+    dragDropTitle: 'Drag & drop image file here',
+    dragDropSub: 'or',
+    browseBtn: 'Choose Image File From Device',
+    supportedFormats: 'Supports JPG, PNG, WEBP. Sharp, front-facing photo recommended.',
+    useCameraBtn: 'Use Device Camera Directly',
+    tryAiTitle: 'Try AI with sample photos:',
+    tryAiDesc: "Don't have a portrait photo ready? Click a sample photo below to instantly test AI face alignment and background removal:",
+    customWidthLabel: 'Width (mm):',
+    customHeightLabel: 'Height (mm):',
+    customFacePctLabel: 'Face ratio (%):',
     maleSample: 'Male Sample',
     femaleSample: 'Female Sample',
     childSample: 'Child Sample',
 
+    guidelinesTitle: 'Official Passport Photo Requirements:',
+    guidelineItem1: 'Face facing straight ahead, looking directly into camera.',
+    guidelineItem2: 'Neutral expression, no smiling showing teeth, eyes wide open.',
+    guidelineItem3: 'Even lighting across face, no harsh dark shadows.',
+    guidelineItem4: 'No sunglasses, no hats (except religious attire).',
+
+    editingPresetLabel: 'Editing:',
+    chooseAnotherPhoto: 'Choose another photo',
+    localAiWorking: 'AI Working Locally...',
     aiAnalyzing: 'AI is analyzing face & removing background...',
     aiFaceFound: 'Face detected! Auto-aligning eye line and proportions...',
     aiSmartFallback: 'Auto-located face position from portrait detection!',
     aiNoFace: 'No clear face detected. Switch to manual adjustment.',
-    aiProcessingComplete: 'AI processing complete!',
+    aiAutoAlignedBanner: 'AI auto-aligned face alignment and target scale!',
+    aiManualFallbackBanner: 'No face detected. Use sliders to adjust manually.',
     topHead: 'Top of Head',
     eyeLine: 'Eye Line',
     chin: 'Chin',
     toggleGuides: 'Toggle Guidelines',
-    resetTransform: 'Reset Adjustments',
-    removeBg: 'Auto AI Background Removal',
-    bgColor: 'Background Color',
-    adjustments: 'Light & Color Adjustments',
+    resetTransform: 'Reset Alignment',
+    nationalStandardLabel: 'National Standard:',
+    removeBgToggle: 'AI Background Removal',
+    bgColorLabel: 'Replacement Background Color:',
+    lightAndColorLabel: 'Lighting & Color Adjustments',
     zoom: 'Zoom',
-    rotate: 'Rotation',
+    rotate: 'Rotate',
     brightness: 'Brightness',
     contrast: 'Contrast',
     saturation: 'Saturation',
     nextPrintGrid: 'Next: Print Layout ➜',
-    backToStep1: '← Choose another photo',
+
+    cameraLoading: 'Starting Camera...',
+    cameraError: 'Cannot access camera. Please grant browser permissions.',
+    captureBtn: 'Take Photo Now',
 
     bgWhite: 'White',
     bgLightBlue: 'Light Blue',
@@ -227,23 +279,28 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     bgLightGrey: 'Light Grey',
     bgTransparent: 'Transparent (PNG)',
 
+    singlePhotoCompleted: 'Single Photo Ready',
+    singlePhotoSpecs: 'High-quality PNG print file',
+    downloadSingleBtn: 'Download Single Photo (HQ)',
     printGridTitle: 'Passport Photo Print Sheet',
     printGridDesc: 'Automatically arrange multiple photos onto standard photo paper sizes ready for printing.',
-    downloadSingle: 'Download Single Photo (HQ)',
-    downloadSheet: 'Download Print Sheet (PNG)',
-    printNow: 'Print Now',
-    paperSize: 'Paper Size',
+    downloadSheetBtn: 'Download Print Sheet (PNG)',
+    printNowBtn: 'Print Now',
+    paperSizeLabel: 'Paper size:',
     paperA4: 'A4 Paper (210 x 297 mm)',
     paper4x6: '4x6 Inch Photo Paper (10x15 cm)',
     paper5x7: '5x7 Inch Photo Paper (13x18 cm)',
-    photoCount: 'Number of photos',
-    copies: 'photos',
-    backToEditor: '← Back to Editor',
+    photoCountLabel: 'Photo count:',
+    copiesUnit: 'photos',
+    backToEditor: 'Back to Editor',
     createNew: 'Create New Photo',
+
+    footerCopyright: '© 2026 AI Passport Photo Maker. All rights reserved.',
+    footerPrivacyText: '100% Private: All AI background removal and biometric analysis run 100% offline inside your browser. We never upload your portrait photos to any server.',
 
     presetVi4x6Name: 'Vietnam Passport Photo (4x6 cm)',
     presetVi4x6Desc: 'White background. Head and shoulders straight. Head takes up 70-80% of height.',
-    presetVi3x4Name: 'Vietnam ID / Certificate Photo (3x4 cm)',
+    presetVi3x4Name: 'Vietnam ID / License Photo (3x4 cm)',
     presetVi3x4Desc: 'White or light blue background. Used for licenses, student cards, and certificates.',
     presetUsVisaName: 'US Passport / Visa Photo (2x2 inch)',
     presetUsVisaDesc: 'Off-white or white background. Head must be 50%-69% of image height.',
@@ -259,47 +316,60 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     privacyBadge: '100% 隐私保护 (离线运行)',
     localAiBadge: '本地 AI',
 
-    step1Title: '1. 选择规格与上传照片',
-    step2Title: '2. 智能对齐与 AI 抠图',
-    step3Title: '3. 导出与打印排版',
+    step1Title: '1. 选择规格与上传',
+    step2Title: '2. 智能对齐与抠图',
+    step3Title: '3. 排版与导出',
 
-    selectStandard: '选择护照 / 签证照片规格',
-    selectStandardDesc: '不同国家和证件类型对尺寸及头部比例有特定要求。',
-    choosePhoto: '上传您的照片',
-    uploadFromDevice: '从设备上传',
-    takePhoto: '使用摄像头拍摄',
-    samplePhotos: '或使用测试示例照片：',
-    dragDropText: '拖放照片到此处',
-    clickToBrowse: '或点击浏览电脑/手机文件',
-    orChooseSample: '快速选择测试示例照片',
-    customWidth: '宽度 (mm)',
-    customHeight: '高度 (mm)',
-    customFacePct: '人脸比例 (%)',
-    samplePhotoLabel: '示例照片 (sample.jpg)',
+    selectPresetTitle: '选择照片尺寸规格：',
+    choosePhotoTitle: '上传人像照片：',
+    dragDropTitle: '拖放照片到此处',
+    dragDropSub: '或',
+    browseBtn: '从设备选择照片文件',
+    supportedFormats: '支持 JPG、PNG、WEBP 格式。建议照片清晰、正面朝前。',
+    useCameraBtn: '直接使用设备摄像头拍摄',
+    tryAiTitle: '使用示例照片体验 AI：',
+    tryAiDesc: '没有准备好照片？点击下方高质量示例照片，立即体验 AI 智能对齐与抠图：',
+    customWidthLabel: '宽度 (mm)：',
+    customHeightLabel: '高度 (mm)：',
+    customFacePctLabel: '人脸比例 (%)：',
     maleSample: '男士示例',
     femaleSample: '女士示例',
     childSample: '儿童示例',
 
+    guidelinesTitle: '官方护照照片合规要求：',
+    guidelineItem1: '头部端正，眼睛直视镜头。',
+    guidelineItem2: '表情自然中性，请勿露齿笑，双眼睁开。',
+    guidelineItem3: '面部光线均匀，无浓重阴影。',
+    guidelineItem4: '请勿佩戴墨镜或帽子（宗教服饰除外）。',
+
+    editingPresetLabel: '正在编辑：',
+    chooseAnotherPhoto: '重新选择照片',
+    localAiWorking: 'AI 正在本地运行...',
     aiAnalyzing: 'AI 正在分析人脸与分割背景...',
     aiFaceFound: '已检测到人脸！正在自动对齐眼线与标准比例...',
     aiSmartFallback: '已根据人像轮廓自动定位人脸位置！',
     aiNoFace: '未检测到清晰人脸，已切换至手动微调。',
-    aiProcessingComplete: 'AI 处理完成！',
+    aiAutoAlignedBanner: 'AI 已自动将人脸对齐至标准水平线与尺寸！',
+    aiManualFallbackBanner: '未检测到人脸，请使用下方滑块手动调整。',
     topHead: '头顶线',
     eyeLine: '眼睛水平线',
     chin: '下巴线',
     toggleGuides: '辅助线开关',
-    resetTransform: '重置调整',
-    removeBg: '自动 AI 背景替换',
-    bgColor: '背景颜色',
-    adjustments: '光照与色彩调整',
-    zoom: '缩放',
-    rotate: '旋转角度',
-    brightness: '亮度',
-    contrast: '对比度',
-    saturation: '饱和度',
+    resetTransform: '重置对齐',
+    nationalStandardLabel: '国家/地区标准：',
+    removeBgToggle: 'AI 智能背景替换',
+    bgColorLabel: '替换背景颜色：',
+    lightAndColorLabel: '光照与色彩调节',
+    zoom: '缩放 (Zoom)',
+    rotate: '旋转角度 (Rotate)',
+    brightness: '亮度 (Brightness)',
+    contrast: '对比度 (Contrast)',
+    saturation: '饱和度 (Saturation)',
     nextPrintGrid: '下一步：打印排版 ➜',
-    backToStep1: '← 重新选择照片',
+
+    cameraLoading: '正在启动摄像头...',
+    cameraError: '无法访问摄像头，请在浏览器设置中授予权限。',
+    captureBtn: '立即拍照',
 
     bgWhite: '白色 (White)',
     bgLightBlue: '浅蓝色 (Light Blue)',
@@ -307,19 +377,24 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     bgLightGrey: '浅灰色 (Light Grey)',
     bgTransparent: '透明 (PNG)',
 
+    singlePhotoCompleted: '单张照片已生成',
+    singlePhotoSpecs: '高清 PNG 打印文件',
+    downloadSingleBtn: '下载高清单张照片',
     printGridTitle: '护照照片排版打印 Sheet',
     printGridDesc: '自动将多张照片排版至标准相纸尺寸，方便直接打印。',
-    downloadSingle: '下载单张照片 (高清)',
-    downloadSheet: '下载打印排版图 (PNG)',
-    printNow: '立即打印',
-    paperSize: '相纸尺寸',
+    downloadSheetBtn: '下载打印排版图 (PNG)',
+    printNowBtn: '立即打印',
+    paperSizeLabel: '相纸尺寸：',
     paperA4: 'A4 纸 (210 x 297 mm)',
     paper4x6: '4x6 英寸相纸 (10x15 cm)',
     paper5x7: '5x7 英寸相纸 (13x18 cm)',
-    photoCount: '照片数量',
-    copies: '张',
-    backToEditor: '← 返回编辑',
+    photoCountLabel: '照片数量：',
+    copiesUnit: '张',
+    backToEditor: '返回继续编辑',
     createNew: '制作新照片',
+
+    footerCopyright: '© 2026 AI Passport Photo Maker. 版权所有。',
+    footerPrivacyText: '100% 隐私安全：所有 AI 抠图与生物特征分析均在您的浏览器本地 100% 离线运行，我们绝不会将您的照片上传至任何服务器。',
 
     presetVi4x6Name: '越南护照照片 (4x6 cm)',
     presetVi4x6Desc: '白底，头部和肩膀端正，头部占照片高度 70-80%。',
@@ -363,4 +438,3 @@ export function saveLanguagePreference(lang: Language) {
     window.localStorage.setItem('passport_app_lang', lang);
   }
 }
-

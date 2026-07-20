@@ -22,24 +22,16 @@ import { Language, TRANSLATIONS, detectInitialLanguage, saveLanguagePreference }
 // Sample photos for easy testing
 const SAMPLE_PHOTOS = [
   {
-    name: 'samplePhotoLabel',
-    url: '/sample.jpg',
-    gender: 'Nam',
-  },
-  {
-    name: 'maleSample',
+    key: 'maleSample',
     url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=500&auto=format&fit=crop&q=80',
-    gender: 'Nam',
   },
   {
-    name: 'femaleSample',
+    key: 'femaleSample',
     url: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=500&auto=format&fit=crop&q=80',
-    gender: 'Nữ',
   },
   {
-    name: 'childSample',
+    key: 'childSample',
     url: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=500&auto=format&fit=crop&q=80',
-    gender: 'Bé gái',
   }
 ];
 
@@ -94,6 +86,15 @@ export default function App() {
       case PassportStandard.US_VISA: return t.presetUsVisaDesc;
       case PassportStandard.SCHENGEN: return t.presetSchengenDesc;
       case PassportStandard.CUSTOM: return t.presetCustomDesc;
+    }
+  };
+
+  const getSampleLabel = (key: string) => {
+    switch (key) {
+      case 'maleSample': return t.maleSample;
+      case 'femaleSample': return t.femaleSample;
+      case 'childSample': return t.childSample;
+      default: return key;
     }
   };
 
@@ -185,8 +186,8 @@ export default function App() {
   };
 
   // Handle camera capture callback
-  const handleCameraCapture = (capturedSrc: string) => {
-    setImageSrc(capturedSrc);
+  const handleCameraCapture = (capturedBase64: string) => {
+    setImageSrc(capturedBase64);
     setCameraMode(false);
     setStep(2);
   };
@@ -200,8 +201,8 @@ export default function App() {
   };
 
   // Callback when editor successfully exports cropped result
-  const handleEditorSave = (output: string) => {
-    setCroppedPhoto(output);
+  const handleEditorSave = (outputBase64: string) => {
+    setCroppedPhoto(outputBase64);
     setStep(3);
   };
 
@@ -307,7 +308,7 @@ export default function App() {
                 <div className="flex items-center gap-2 border-b border-slate-900 pb-2">
                   <Settings className="w-4 h-4 text-teal-400" />
                   <h2 className="font-display font-semibold text-sm uppercase tracking-wider text-slate-300">
-                    Chọn chuẩn kích thước ảnh:
+                    {t.selectPresetTitle}
                   </h2>
                 </div>
 
@@ -332,8 +333,8 @@ export default function App() {
                             {preset.widthMm}x{preset.heightMm} mm
                           </span>
                         </div>
-                        <h3 className="font-semibold text-slate-100 text-sm leading-tight">{preset.name}</h3>
-                        <p className="text-[11px] text-slate-400 line-clamp-3 leading-relaxed">{preset.description}</p>
+                        <h3 className="font-semibold text-slate-100 text-sm leading-tight">{getPresetName(preset.id)}</h3>
+                        <p className="text-[11px] text-slate-400 line-clamp-3 leading-relaxed">{getPresetDesc(preset.id)}</p>
                       </div>
 
                       {/* Tick circle indicator */}
@@ -354,7 +355,7 @@ export default function App() {
                     className="bg-slate-900/40 border border-slate-800 rounded-2xl p-6 grid grid-cols-1 md:grid-cols-3 gap-6 mt-4"
                   >
                     <div className="space-y-2">
-                      <label className="text-xs font-semibold text-slate-300 block">Chiều rộng (mm):</label>
+                      <label className="text-xs font-semibold text-slate-300 block">{t.customWidthLabel}</label>
                       <div className="flex items-center gap-3">
                         <input
                           id="custom_width_range"
@@ -370,7 +371,7 @@ export default function App() {
                     </div>
 
                     <div className="space-y-2">
-                      <label className="text-xs font-semibold text-slate-300 block">Chiều cao (mm):</label>
+                      <label className="text-xs font-semibold text-slate-300 block">{t.customHeightLabel}</label>
                       <div className="flex items-center gap-3">
                         <input
                           id="custom_height_range"
@@ -386,7 +387,7 @@ export default function App() {
                     </div>
 
                     <div className="space-y-2">
-                      <label className="text-xs font-semibold text-slate-300 block">Tỉ lệ khuôn mặt đầu chiếm (%):</label>
+                      <label className="text-xs font-semibold text-slate-300 block">{t.customFacePctLabel}</label>
                       <div className="flex items-center gap-3">
                         <input
                           id="custom_face_pct_range"
@@ -412,7 +413,7 @@ export default function App() {
                   <div className="flex items-center gap-2 border-b border-slate-900 pb-2">
                     <Upload className="w-4 h-4 text-teal-400" />
                     <h2 className="font-display font-semibold text-sm uppercase tracking-wider text-slate-300">
-                      Tải lên hình chân dung:
+                      {t.choosePhotoTitle}
                     </h2>
                   </div>
 
@@ -431,11 +432,11 @@ export default function App() {
                       }`}
                     >
                       <Upload className="w-10 h-10 text-slate-500 mb-3" />
-                      <p className="text-sm font-medium text-slate-300">Kéo thả file ảnh vào đây</p>
-                      <p className="text-xs text-slate-400 mt-1 mb-4">hoặc</p>
+                      <p className="text-sm font-medium text-slate-300">{t.dragDropTitle}</p>
+                      <p className="text-xs text-slate-400 mt-1 mb-4">{t.dragDropSub}</p>
                       
                       <label className="px-5 py-2.5 bg-teal-500 hover:bg-teal-600 active:scale-95 text-slate-950 font-bold rounded-xl text-xs transition shadow-lg cursor-pointer">
-                        Chọn File Ảnh Từ Máy
+                        {t.browseBtn}
                         <input 
                           id="file_upload_input"
                           type="file" 
@@ -444,7 +445,7 @@ export default function App() {
                           className="hidden" 
                         />
                       </label>
-                      <p className="text-[10px] text-slate-400 mt-3">Hỗ trợ định dạng JPG, PNG, WEBP. Ảnh sắc nét, hướng thẳng.</p>
+                      <p className="text-[10px] text-slate-400 mt-3">{t.supportedFormats}</p>
                     </div>
                   )}
 
@@ -456,7 +457,7 @@ export default function App() {
                       className="w-full py-3 bg-slate-900 hover:bg-slate-800 active:scale-[0.99] border border-slate-800 text-slate-200 hover:text-white rounded-2xl flex items-center justify-center gap-2 text-xs font-semibold transition"
                     >
                       <Camera className="w-4 h-4 text-teal-400" />
-                      <span>Sử dụng Camera trực tiếp của thiết bị</span>
+                      <span>{t.useCameraBtn}</span>
                     </button>
                   )}
                 </div>
@@ -466,32 +467,31 @@ export default function App() {
                   <div className="flex items-center gap-1.5 border-b border-slate-900 pb-2">
                     <Sparkles className="w-4 h-4 text-teal-400" />
                     <h3 className="font-display font-semibold text-sm text-slate-300 uppercase tracking-wider">
-                      Trải nghiệm thử AI ngay:
+                      {t.tryAiTitle}
                     </h3>
                   </div>
                   <p className="text-xs text-slate-400 leading-relaxed">
-                    Bạn không có sẵn ảnh chân dung? Hãy click chọn một ảnh mẫu chất lượng cao dưới đây để trải nghiệm tức thì khả năng căn chỉnh khuôn mặt và tách phông nền đỉnh cao của mô hình AI:
+                    {t.tryAiDesc}
                   </p>
 
                   <div className="grid grid-cols-3 gap-3 pt-2">
                     {SAMPLE_PHOTOS.map((sample) => (
                       <button
-                        id={`select_sample_${sample.name.replace(' ', '_')}_btn`}
-                        key={sample.name}
+                        id={`select_sample_${sample.key}_btn`}
+                        key={sample.key}
                         onClick={() => selectSample(sample.url)}
                         className="group flex flex-col items-center gap-2 p-1.5 bg-slate-900/60 hover:bg-slate-800 border border-slate-800 rounded-xl transition text-center select-none cursor-pointer"
                       >
                         <div className="aspect-square w-full rounded-lg overflow-hidden bg-slate-950 relative">
                           <img 
                             src={sample.url} 
-                            alt={sample.name} 
+                            alt={getSampleLabel(sample.key)} 
                             className="w-full h-full object-cover group-hover:scale-110 transition duration-300" 
                             referrerPolicy="no-referrer"
                           />
                         </div>
                         <div className="space-y-0.5">
-                          <p className="text-[10px] font-semibold text-slate-300">{sample.name}</p>
-                          <span className="text-[8px] bg-slate-800 px-1 py-0.2 rounded text-slate-400 font-mono">{sample.gender}</span>
+                          <p className="text-[10px] font-semibold text-slate-300">{getSampleLabel(sample.key)}</p>
                         </div>
                       </button>
                     ))}
@@ -500,13 +500,13 @@ export default function App() {
                   <div className="bg-slate-900/60 border border-slate-800/80 rounded-xl p-3.5 space-y-2 mt-4 text-[11px] text-slate-400 leading-relaxed">
                     <p className="font-semibold text-teal-400 flex items-center gap-1">
                       <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
-                      Yêu cầu ảnh chụp hộ chiếu đạt chuẩn:
+                      {t.guidelinesTitle}
                     </p>
                     <ul className="list-disc list-inside space-y-1">
-                      <li>Khuôn mặt hướng thẳng, nhìn trực diện vào ống kính.</li>
-                      <li>Nét mặt trung tính, không cười hở răng, mở mắt rõ.</li>
-                      <li>Ánh sáng phân bổ đều trên mặt, không đổ bóng đậm.</li>
-                      <li>Không đeo kính râm, không đội mũ (trừ trang phục tôn giáo).</li>
+                      <li>{t.guidelineItem1}</li>
+                      <li>{t.guidelineItem2}</li>
+                      <li>{t.guidelineItem3}</li>
+                      <li>{t.guidelineItem4}</li>
                     </ul>
                   </div>
                 </div>
@@ -528,16 +528,16 @@ export default function App() {
               <div className="flex items-center justify-between border-b border-slate-900 pb-3">
                 <button
                   id="editor_back_btn"
-                  onClick={handleReset}
+                  onClick={handleResetAll}
                   className="flex items-center gap-1 text-xs text-slate-400 hover:text-white transition bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-800"
                 >
                   <ArrowLeft className="w-4 h-4" />
-                  <span>Chọn ảnh khác</span>
+                  <span>{t.chooseAnotherPhoto}</span>
                 </button>
 
                 <div className="flex items-center gap-1.5 text-xs">
-                  <span className="text-slate-400">Đang chỉnh sửa:</span>
-                  <span className="text-teal-400 font-semibold">{selectedPreset.name}</span>
+                  <span className="text-slate-400">{t.editingPresetLabel}</span>
+                  <span className="text-teal-400 font-semibold">{getPresetName(selectedPreset.id)}</span>
                 </div>
               </div>
 
@@ -588,14 +588,14 @@ export default function App() {
                 <div className="lg:col-span-4 flex flex-col items-center bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-lg text-center">
                   <div className="flex items-center gap-1.5 text-xs text-teal-400 font-semibold self-start bg-teal-500/10 px-2.5 py-1 rounded-full">
                     <UserCheck className="w-3.5 h-3.5" />
-                    <span>{t.downloadSingle}</span>
+                    <span>{t.singlePhotoCompleted}</span>
                   </div>
 
                   {/* Rendered cropped output image */}
                   <div className="relative aspect-[2/3] w-full max-w-[180px] bg-white rounded-xl shadow-xl overflow-hidden p-0.5 border border-slate-700">
                     <img 
                       src={croppedPhoto} 
-                      alt="Ảnh hộ chiếu thành phẩm" 
+                      alt="Passport Photo Output" 
                       className="w-full h-full object-cover rounded-lg"
                       referrerPolicy="no-referrer"
                     />
@@ -603,17 +603,18 @@ export default function App() {
 
                   <div className="space-y-1">
                     <h3 className="font-semibold text-slate-100 text-sm">{getPresetName(selectedPreset.id)} ({selectedPreset.widthMm}x{selectedPreset.heightMm} mm)</h3>
+                    <p className="text-xs text-slate-400">{t.singlePhotoSpecs}</p>
                   </div>
 
                   {/* Action download single image */}
                   <a
                     id="download_single_photo_btn"
                     href={croppedPhoto}
-                    download={`Anh_Ho_Chieu_${selectedPreset.widthMm}x${selectedPreset.heightMm}.jpg`}
+                    download={`Passport_Photo_${selectedPreset.widthMm}x${selectedPreset.heightMm}.jpg`}
                     className="w-full py-3 bg-slate-800 hover:bg-slate-700 active:scale-95 text-teal-400 hover:text-teal-300 font-bold rounded-xl text-xs transition flex items-center justify-center gap-2 border border-slate-700"
                   >
                     <Download className="w-4 h-4" />
-                    <span>{t.downloadSingle}</span>
+                    <span>{t.downloadSingleBtn}</span>
                   </a>
                 </div>
 
@@ -633,11 +634,11 @@ export default function App() {
       {/* Footer information details */}
       <footer className="border-t border-slate-900 bg-slate-950 py-8 px-6 text-center text-xs text-slate-500 mt-12 space-y-3">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p>© 2026 AI Passport Photo Maker. Bản quyền được bảo lưu.</p>
-          <div className="flex items-center gap-4 text-slate-400">
-            <span className="flex items-center gap-1">
-              <ShieldCheck className="w-4 h-4 text-emerald-400" />
-              Bảo mật tuyệt đối: Toàn bộ quá trình tách nền & phân tích AI được thực hiện 100% offline tại trình duyệt của bạn. Chúng tôi không bao giờ tải ảnh chân dung của bạn lên bất kỳ máy chủ nào.
+          <p>{t.footerCopyright}</p>
+          <div className="flex items-center gap-4 text-slate-400 max-w-xl text-left">
+            <span className="flex items-center gap-1.5 leading-relaxed">
+              <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+              {t.footerPrivacyText}
             </span>
           </div>
         </div>

@@ -183,7 +183,7 @@ export default function PrintingGrid({ photoSrc, preset, language = 'vi' }: Prin
         <div className="space-y-4">
           {/* Paper Size selector */}
           <div className="space-y-2">
-            <label className="text-xs font-semibold text-slate-300 block">Kích thước Giấy In:</label>
+            <label className="text-xs font-semibold text-slate-300 block">{t.paperSizeLabel}</label>
             <div className="grid grid-cols-2 gap-2">
               <button
                 id="paper_10x15_btn"
@@ -195,7 +195,7 @@ export default function PrintingGrid({ photoSrc, preset, language = 'vi' }: Prin
                 }`}
               >
                 <Printer className="w-3.5 h-3.5" />
-                <span>Giấy Ảnh 10x15 cm</span>
+                <span>{t.paper4x6}</span>
               </button>
               <button
                 id="paper_A4_btn"
@@ -207,14 +207,14 @@ export default function PrintingGrid({ photoSrc, preset, language = 'vi' }: Prin
                 }`}
               >
                 <FileText className="w-3.5 h-3.5" />
-                <span>Giấy Thường A4</span>
+                <span>{t.paperA4}</span>
               </button>
             </div>
           </div>
 
           {/* Photo count selector */}
           <div className="space-y-2">
-            <label className="text-xs font-semibold text-slate-300 block">Số lượng ảnh trên trang:</label>
+            <label className="text-xs font-semibold text-slate-300 block">{t.photoCountLabel}</label>
             <div className="flex items-center gap-3">
               <input
                 id="photo_count_range"
@@ -225,20 +225,17 @@ export default function PrintingGrid({ photoSrc, preset, language = 'vi' }: Prin
                 onChange={(e) => setPhotoCount(parseInt(e.target.value))}
                 className="w-full accent-teal-400"
               />
-              <span className="text-sm font-semibold text-teal-400 w-10 text-right">{photoCount} tấm</span>
+              <span className="text-sm font-semibold text-teal-400 w-12 text-right">{photoCount} {t.copiesUnit}</span>
             </div>
-            <p className="text-[10px] text-slate-400 leading-relaxed">
-              *Hệ thống tự động canh chỉnh khoảng cách và thêm các đường đứt nét làm hướng dẫn cắt bằng kéo sau khi in xong.
-            </p>
           </div>
 
           {/* Guidelines info */}
           <div className="bg-slate-800/40 border border-slate-700/50 rounded-xl p-3.5 text-xs text-slate-300 leading-relaxed space-y-2">
-            <p className="font-semibold text-teal-400">Cách in đúng tỉ lệ thực tế:</p>
+            <p className="font-semibold text-teal-400">Actual Size Printing Tip:</p>
             <ol className="list-decimal list-inside space-y-1 text-[11px]">
-              <li>Tải file ảnh tấm in này về điện thoại/máy tính.</li>
-              <li>Khi mang ra tiệm in hoặc tự in tại nhà, hãy chọn đúng khổ giấy ({paperSize === '10x15' ? '10x15cm / 4x6 inch' : 'A4'}).</li>
-              <li>Chọn tuỳ chọn in <strong className="text-white">"Actual Size" (Kích thước thực tế)</strong> hoặc tắt chế độ "Fit to Page" để đảm bảo ảnh ra đúng chuẩn từng milimet.</li>
+              <li>Download this printable sheet to your computer/phone.</li>
+              <li>Select exact paper size ({paperSize === '10x15' ? '10x15cm / 4x6"' : 'A4'}).</li>
+              <li>Select <strong className="text-white">"Actual Size" / 100% Scale</strong> in printer dialog.</li>
             </ol>
           </div>
         </div>
@@ -248,12 +245,12 @@ export default function PrintingGrid({ photoSrc, preset, language = 'vi' }: Prin
           {isGenerating ? (
             <div className="flex flex-col items-center gap-2">
               <RefreshCw className="w-6 h-6 animate-spin text-teal-400" />
-              <p className="text-xs text-slate-400">Đang xếp hình...</p>
+              <p className="text-xs text-slate-400">Rendering...</p>
             </div>
           ) : previewSrc ? (
             <div className="w-full flex flex-col items-center gap-4">
               <div className="relative shadow-md border border-slate-700 rounded overflow-hidden max-w-[280px] md:max-w-xs aspect-video bg-white flex items-center justify-center p-1">
-                <img src={previewSrc} alt="Trang in mẫu" className="max-h-56 object-contain" referrerPolicy="no-referrer" />
+                <img src={previewSrc} alt="Print Sheet Preview" className="max-h-56 object-contain" referrerPolicy="no-referrer" />
                 <span className="absolute top-2 left-2 bg-black/75 text-[9px] text-slate-200 px-1.5 py-0.5 rounded font-mono">
                   {paperSize === '10x15' ? '15cm x 10cm' : '29.7cm x 21cm'} @300DPI
                 </span>
@@ -265,11 +262,11 @@ export default function PrintingGrid({ photoSrc, preset, language = 'vi' }: Prin
                 className="flex items-center gap-2 px-5 py-2.5 bg-teal-500 hover:bg-teal-600 active:scale-95 text-slate-900 font-semibold rounded-lg text-xs transition shadow-md shadow-teal-500/10"
               >
                 <Download className="w-4 h-4" />
-                <span>Tải tấm in xếp sẵn ({paperSize === '10x15' ? '10x15 cm' : 'A4'})</span>
+                <span>{t.downloadSheetBtn} ({paperSize === '10x15' ? '10x15 cm' : 'A4'})</span>
               </button>
             </div>
           ) : (
-            <p className="text-xs text-slate-400">Chưa có dữ liệu preview</p>
+            <p className="text-xs text-slate-400">No preview available</p>
           )}
 
           {/* Hidden Canvas used for generating print sheet */}

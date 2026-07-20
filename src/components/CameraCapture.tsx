@@ -6,13 +6,16 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Camera, RefreshCw, AlertCircle, Sparkles } from 'lucide-react';
 import { PhotoPreset } from '../types';
+import { Language, TRANSLATIONS } from '../locales/translations';
 
 interface CameraCaptureProps {
   onCapture: (imageSrc: string) => void;
   preset: PhotoPreset;
+  language?: Language;
 }
 
-export default function CameraCapture({ onCapture, preset }: CameraCaptureProps) {
+export default function CameraCapture({ onCapture, preset, language = 'vi' }: CameraCaptureProps) {
+  const t = TRANSLATIONS[language];
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
@@ -56,12 +59,10 @@ export default function CameraCapture({ onCapture, preset }: CameraCaptureProps)
       }
       setIsCameraActive(true);
     } catch (err: any) {
-      console.error('Không thể mở camera:', err);
-      let errMsg = 'Không thể truy cập camera. Vui lòng cấp quyền camera cho trang web.';
+      console.error('Camera access error:', err);
+      let errMsg = t.cameraError;
       if (err.name === 'NotAllowedError') {
-        errMsg = 'Bạn đã từ chối quyền truy cập camera. Vui lòng cấp quyền trong cài đặt trình duyệt để tiếp tục.';
-      } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
-        errMsg = 'Không tìm thấy camera tương thích trên thiết bị của bạn.';
+        errMsg = t.cameraError;
       }
       setError(errMsg);
     } finally {
@@ -130,7 +131,7 @@ export default function CameraCapture({ onCapture, preset }: CameraCaptureProps)
         {isInitializing && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/95 text-white gap-3 z-20">
             <RefreshCw className="w-8 h-8 animate-spin text-teal-400" />
-            <p className="text-sm font-medium">Đang khởi tạo camera...</p>
+            <p className="text-sm font-medium">{t.cameraLoading}</p>
           </div>
         )}
 
@@ -138,15 +139,15 @@ export default function CameraCapture({ onCapture, preset }: CameraCaptureProps)
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900 p-6 text-center text-white gap-4 z-20">
             <AlertCircle className="w-12 h-12 text-rose-500" />
             <div className="space-y-1">
-              <h3 className="font-semibold text-rose-400">Lỗi camera</h3>
+              <h3 className="font-semibold text-rose-400">Camera Error</h3>
               <p className="text-xs text-slate-300 max-w-sm leading-relaxed">{error}</p>
             </div>
             <button
               id="retry_camera_btn"
               onClick={startCamera}
-              className="px-4 py-2 bg-teal-500 hover:bg-teal-600 transition rounded-lg text-xs font-semibold shadow-md active:scale-95"
+              className="px-4 py-2 bg-teal-500 hover:bg-teal-600 transition rounded-lg text-xs font-semibold shadow-md active:scale-95 text-slate-950"
             >
-              Thử lại
+              Retry
             </button>
           </div>
         )}
@@ -185,11 +186,6 @@ export default function CameraCapture({ onCapture, preset }: CameraCaptureProps)
                 {/* Shoulder lines */}
                 <path d="M15 85 Q 35 70 50 70 T 85 85" fill="none" stroke="currentColor" strokeWidth="1" />
               </svg>
-
-              {/* Guidelines text instructions */}
-              <div className="absolute bottom-2 left-0 right-0 text-center bg-black/60 backdrop-blur-xs py-1 px-2 rounded-md mx-6">
-                <p className="text-[10px] text-teal-200 font-medium">Đặt khuôn mặt khớp vào khung hình bầu dục</p>
-              </div>
             </div>
           </div>
         )}
@@ -202,7 +198,6 @@ export default function CameraCapture({ onCapture, preset }: CameraCaptureProps)
           onClick={toggleCameraFacing}
           disabled={!isCameraActive || isInitializing}
           className="p-3 bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-300 hover:text-white rounded-full transition disabled:opacity-40 disabled:cursor-not-allowed"
-          title="Đổi camera"
         >
           <RefreshCw className="w-5 h-5" />
         </button>
@@ -214,7 +209,7 @@ export default function CameraCapture({ onCapture, preset }: CameraCaptureProps)
           className="flex items-center gap-2 px-6 py-3 bg-teal-500 hover:bg-teal-600 disabled:bg-slate-700 disabled:opacity-40 text-slate-900 font-semibold rounded-full shadow-lg hover:shadow-teal-500/20 active:scale-95 transition"
         >
           <Camera className="w-5 h-5" />
-          <span>Chụp ảnh</span>
+          <span>{t.captureBtn}</span>
         </button>
 
         <button
@@ -222,7 +217,7 @@ export default function CameraCapture({ onCapture, preset }: CameraCaptureProps)
           onClick={stopCamera}
           className="px-4 py-2.5 text-xs font-semibold text-slate-400 hover:text-white bg-slate-800/50 hover:bg-slate-800 rounded-lg transition"
         >
-          Huỷ bỏ
+          Cancel
         </button>
       </div>
     </div>
