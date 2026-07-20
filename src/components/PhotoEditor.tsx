@@ -102,12 +102,14 @@ export default function PhotoEditor({ imageSrc, preset, onSave }: PhotoEditorPro
       let faceFound = false;
 
       try {
-        const faceResult = await detectFace(img);
+        const detectRes = await detectFace(img);
+        const { faceResult, sourceWidth, sourceHeight } = detectRes;
+
         if (faceResult && faceResult.detections && faceResult.detections.length > 0) {
           const detection = faceResult.detections[0];
           const box = detection.boundingBox;
 
-          if (box) {
+          if (box && sourceWidth > 0 && sourceHeight > 0) {
             faceFound = true;
             setFaceDetected(true);
             setAiLog('Đã phát hiện khuôn mặt! Đang căn chỉnh trục mắt và tỉ lệ chuẩn...');
@@ -116,37 +118,54 @@ export default function PhotoEditor({ imageSrc, preset, onSave }: PhotoEditorPro
             if (detection.keypoints && detection.keypoints.length >= 2) {
               const rightEye = detection.keypoints[0];
               const leftEye = detection.keypoints[1];
-              const rightEyeX = rightEye.x * img.width;
-              const rightEyeY = rightEye.y * img.height;
-              const leftEyeX = leftEye.x * img.width;
-              const leftEyeY = leftEye.y * img.height;
+              const rightEyeX = rightEye.x * sourceWidth;
+              const rightEyeY = rightEye.y * sourceHeight;
+              const leftEyeX = leftEye.x * sourceWidth;
+              const leftEyeY = leftEye.y * sourceHeight;
 
               const dx = leftEyeX - rightEyeX;
               const dy = leftEyeY - rightEyeY;
               rotationAngle = -Math.atan2(dy, dx) * (180 / Math.PI);
             }
 
-            const estimatedHeadHeight = box.height * 1.35;
-            const targetFaceHeightPercent = (preset.faceHeightMinPercent + preset.faceHeightMaxPercent) / 2;
+            // Normalize face bounding box relative to detection source
+            const normBoxHeight = box.height / sourceHeight;
+            const normBoxWidth = box.width / sourceWidth;
+            const normFaceCenterX = (box.originX + box.width / 2) / sourceWidth;
+            const normFaceCenterY = (box.originY + box.height / 2) / sourceHeight;
+
+            // Estimated full head height (hair to chin) is ~1.35x face box height
+            const normEstimatedHeadHeight = normBoxHeight * 1.35;
+
+            // Target head height percentage for passport (e.g., 70% of canvas height)
+            const targetHeadHeightPercent = (preset.faceHeightMinPercent + preset.faceHeightMaxPercent) / 200;
+
             const standardCanvasHeight = 600;
             const standardCanvasWidth = standardCanvasHeight * preset.aspectRatio;
 
-            const desiredHeadHeightPxOnCanvas = standardCanvasHeight * (targetFaceHeightPercent / 100);
-            const targetScale = (desiredHeadHeightPxOnCanvas / standardCanvasHeight) * (img.height / estimatedHeadHeight);
+            // baseScale fits img inside standardCanvasWidth x standardCanvasHeight
+            const baseScale = Math.min(standardCanvasWidth / img.width, standardCanvasHeight / img.height);
 
-            const faceCenterX = box.originX + box.width / 2;
-            const faceCenterY = box.originY + box.height / 2;
-            const cropCenterY = faceCenterY - box.height * 0.15;
+            // Head height at zoom = 1.0 on canvas:
+            const headHeightOnCanvasAtZoom1 = normEstimatedHeadHeight * img.height * baseScale;
+            const targetHeadHeightPxOnCanvas = standardCanvasHeight * targetHeadHeightPercent;
 
-            const currentCanvasCenterX = img.width / 2;
-            const currentCanvasCenterY = img.height / 2;
+            // Target zoom multiplier:
+            const calculatedZoom = targetHeadHeightPxOnCanvas / Math.max(1, headHeightOnCanvasAtZoom1);
+            const zoom = Math.max(0.5, Math.min(3.5, calculatedZoom));
 
-            const targetOffsetX = (currentCanvasCenterX - faceCenterX) * (standardCanvasWidth / img.width);
-            const targetOffsetY = (currentCanvasCenterY - cropCenterY) * (standardCanvasHeight / img.height);
+            // Shift crop center slightly up (0.15 of face height) to capture top of hair
+            const normCropCenterY = normFaceCenterY - normBoxHeight * 0.15;
+
+            const finalScale = baseScale * zoom;
+
+            // Canvas center offsets (translating image so crop center aligns with canvas center):
+            const targetOffsetX = (0.5 - normFaceCenterX) * img.width * finalScale;
+            const targetOffsetY = (0.5 - normCropCenterY) * img.height * finalScale;
 
             setAdjustments({
               ...DEFAULT_ADJUSTMENTS,
-              zoom: Number(targetScale.toFixed(2)),
+              zoom: Number(zoom.toFixed(2)),
               rotation: Number(rotationAngle.toFixed(1)),
               offsetX: Number(targetOffsetX.toFixed(0)),
               offsetY: Number(targetOffsetY.toFixed(0)),
@@ -180,28 +199,31 @@ export default function PhotoEditor({ imageSrc, preset, onSave }: PhotoEditorPro
           setFaceDetected(true);
           setAiLog('Đã tự động định vị khuôn mặt từ nhận diện chân dung!');
 
-          const topHeadYImg = (minY / mHeight) * img.height;
-          const bodyWidthImg = ((maxX - minX) / mWidth) * img.width;
-          const estimatedHeadHeightImg = bodyWidthImg * 0.75;
-          const faceCenterXImg = (((minX + maxX) / 2) / mWidth) * img.width;
-          const faceCenterYImg = topHeadYImg + estimatedHeadHeightImg * 0.5;
+          const normTopHeadY = minY / mHeight;
+          const normBodyWidth = (maxX - minX) / mWidth;
+          const normFaceCenterX = ((minX + maxX) / 2) / mWidth;
 
-          const targetFaceHeightPercent = (preset.faceHeightMinPercent + preset.faceHeightMaxPercent) / 2;
+          const normEstimatedHeadHeight = Math.min(((maxY - minY) / mHeight) * 0.45, normBodyWidth * 0.75);
+          const normCropCenterY = normTopHeadY + normEstimatedHeadHeight * 0.5;
+
+          const targetHeadHeightPercent = (preset.faceHeightMinPercent + preset.faceHeightMaxPercent) / 200;
           const standardCanvasHeight = 600;
           const standardCanvasWidth = standardCanvasHeight * preset.aspectRatio;
 
-          const desiredHeadHeightPxOnCanvas = standardCanvasHeight * (targetFaceHeightPercent / 100);
-          const targetScale = (desiredHeadHeightPxOnCanvas / standardCanvasHeight) * (img.height / estimatedHeadHeightImg);
+          const baseScale = Math.min(standardCanvasWidth / img.width, standardCanvasHeight / img.height);
+          const headHeightOnCanvasAtZoom1 = normEstimatedHeadHeight * img.height * baseScale;
+          const targetHeadHeightPxOnCanvas = standardCanvasHeight * targetHeadHeightPercent;
 
-          const currentCanvasCenterX = img.width / 2;
-          const currentCanvasCenterY = img.height / 2;
+          const calculatedZoom = targetHeadHeightPxOnCanvas / Math.max(1, headHeightOnCanvasAtZoom1);
+          const zoom = Math.max(0.5, Math.min(3.5, calculatedZoom));
 
-          const targetOffsetX = (currentCanvasCenterX - faceCenterXImg) * (standardCanvasWidth / img.width);
-          const targetOffsetY = (currentCanvasCenterY - faceCenterYImg) * (standardCanvasHeight / img.height);
+          const finalScale = baseScale * zoom;
+          const targetOffsetX = (0.5 - normFaceCenterX) * img.width * finalScale;
+          const targetOffsetY = (0.5 - normCropCenterY) * img.height * finalScale;
 
           setAdjustments({
             ...DEFAULT_ADJUSTMENTS,
-            zoom: Number(Math.max(0.5, Math.min(3, targetScale)).toFixed(2)),
+            zoom: Number(zoom.toFixed(2)),
             rotation: 0,
             offsetX: Number(targetOffsetX.toFixed(0)),
             offsetY: Number(targetOffsetY.toFixed(0)),

@@ -116,7 +116,14 @@ export async function detectFace(imageElement: HTMLImageElement | HTMLVideoEleme
     throw new Error('Chưa khởi tạo FaceDetector');
   }
   const source = ensureCanvasSource(imageElement);
-  return faceDetector.detect(source);
+  const faceResult = faceDetector.detect(source);
+  const sourceWidth = source instanceof HTMLCanvasElement ? source.width : (source.naturalWidth || source.width);
+  const sourceHeight = source instanceof HTMLCanvasElement ? source.height : (source.naturalHeight || source.height);
+  return {
+    faceResult,
+    sourceWidth,
+    sourceHeight,
+  };
 }
 
 export async function segmentSelfie(imageElement: HTMLImageElement | HTMLVideoElement | HTMLCanvasElement) {
