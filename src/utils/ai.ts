@@ -19,9 +19,8 @@ export async function initModels(onProgress?: (status: string) => void): Promise
     try {
       onProgress?.('Đang tải công cụ xử lý (WASM)...');
       
-      visionTasks = await FilesetResolver.forVisionTasks(
-        'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm'
-      );
+      const wasmPath = `${window.location.origin}/wasm`;
+      visionTasks = await FilesetResolver.forVisionTasks(wasmPath);
 
       const faceModelPath = `${window.location.origin}/models/blaze_face_short_range.tflite`;
       const selfieModelPath = `${window.location.origin}/models/selfie_segmenter.tflite`;
