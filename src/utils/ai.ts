@@ -125,28 +125,37 @@ export async function detectFace(imageElement: HTMLImageElement | HTMLVideoEleme
   if (!faceDetector) {
     throw new Error('Chưa khởi tạo FaceDetector');
   }
-  const source = ensureCanvasSource(imageElement);
-  const faceResult = faceDetector.detect(source);
-  const dims = getElementDimensions(source);
-  const sourceWidth = dims.width;
-  const sourceHeight = dims.height;
+  try {
+    const source = ensureCanvasSource(imageElement);
+    const faceResult = faceDetector.detect(source);
+    const dims = getElementDimensions(source);
+    const sourceWidth = dims.width;
+    const sourceHeight = dims.height;
 
-  // Sort detections by confidence * box area to ensure primary face comes first
-  if (faceResult && faceResult.detections && faceResult.detections.length > 1) {
-    faceResult.detections.sort((a, b) => {
-      const scoreA = (a.categories && a.categories[0]?.score) || 0.5;
-      const scoreB = (b.categories && b.categories[0]?.score) || 0.5;
-      const areaA = (a.boundingBox?.width || 0) * (a.boundingBox?.height || 0);
-      const areaB = (b.boundingBox?.width || 0) * (b.boundingBox?.height || 0);
-      return (scoreB * areaB) - (scoreA * areaA);
-    });
+    // Sort detections by confidence * box area to ensure primary face comes first
+    if (faceResult && faceResult.detections && faceResult.detections.length > 1) {
+      faceResult.detections.sort((a, b) => {
+        const scoreA = (a.categories && a.categories[0]?.score) || 0.5;
+        const scoreB = (b.categories && b.categories[0]?.score) || 0.5;
+        const areaA = (a.boundingBox?.width || 0) * (a.boundingBox?.height || 0);
+        const areaB = (b.boundingBox?.width || 0) * (b.boundingBox?.height || 0);
+        return (scoreB * areaB) - (scoreA * areaA);
+      });
+    }
+
+    return {
+      faceResult,
+      sourceWidth,
+      sourceHeight,
+    };
+  } catch (err) {
+    console.warn('Lỗi khi gọi MediaPipe detectFace:', err);
+    return {
+      faceResult: null,
+      sourceWidth: 0,
+      sourceHeight: 0,
+    };
   }
-
-  return {
-    faceResult,
-    sourceWidth,
-    sourceHeight,
-  };
 }
 
 export async function segmentSelfie(imageElement: HTMLImageElement | HTMLVideoElement | HTMLCanvasElement) {
@@ -156,8 +165,13 @@ export async function segmentSelfie(imageElement: HTMLImageElement | HTMLVideoEl
   if (!imageSegmenter) {
     throw new Error('Chưa khởi tạo ImageSegmenter');
   }
-  const source = ensureCanvasSource(imageElement);
-  return imageSegmenter.segment(source);
+  try {
+    const source = ensureCanvasSource(imageElement);
+    return imageSegmenter.segment(source);
+  } catch (err) {
+    console.warn('Lỗi khi gọi MediaPipe segmentSelfie:', err);
+    return null;
+  }
 }
 
 

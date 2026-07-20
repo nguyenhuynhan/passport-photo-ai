@@ -235,64 +235,53 @@ export default function App() {
 
       {/* Main Content Area */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-8 space-y-8">
-        <AnimatePresence mode="wait">
-          
-          {/* STEP 1: Select Preset & Upload Photo */}
-          {step === 1 && (
-            <Step1SelectPhoto
-              key="step-1"
-              selectedPreset={selectedPreset}
-              onSelectPreset={setSelectedPreset}
-              customWidth={customWidth}
-              setCustomWidth={setCustomWidth}
-              customHeight={customHeight}
-              setCustomHeight={setCustomHeight}
-              customFacePct={customFacePct}
-              setCustomFacePct={setCustomFacePct}
-              onPhotoSelected={handlePhotoSelected}
-              language={language}
-            />
-          )}
+        {/* STEP 1: Select Preset & Upload Photo */}
+        {step === 1 && (
+          <Step1SelectPhoto
+            key="step-1"
+            selectedPreset={selectedPreset}
+            onSelectPreset={setSelectedPreset}
+            customWidth={customWidth}
+            setCustomWidth={setCustomWidth}
+            customHeight={customHeight}
+            setCustomHeight={setCustomHeight}
+            customFacePct={customFacePct}
+            setCustomFacePct={setCustomFacePct}
+            onPhotoSelected={handlePhotoSelected}
+            language={language}
+          />
+        )}
 
-          {/* STEP 2: Edit & Align Photo */}
-          {step === 2 && imageSrc && (
-            <motion.div
-              key="step-2"
-              initial={{ opacity: 0, scale: 0.98 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.98 }}
-              transition={{ duration: 0.2 }}
-              className="space-y-4"
-            >
-              <div className="flex items-center justify-between border-b border-slate-900 pb-3">
-                <div className="flex items-center gap-1.5 text-xs">
-                  <span className="text-slate-400">{t.editingPresetLabel}</span>
-                  <span className="text-teal-400 font-semibold">{getPresetName(selectedPreset.id)}</span>
-                </div>
+        {/* STEP 2: Edit & Align Photo (Preserve mounted state while imageSrc exists) */}
+        {imageSrc && (
+          <div className={step === 2 ? 'space-y-4' : 'hidden'}>
+            <div className="flex items-center justify-between border-b border-slate-900 pb-3">
+              <div className="flex items-center gap-1.5 text-xs">
+                <span className="text-slate-400">{t.editingPresetLabel}</span>
+                <span className="text-teal-400 font-semibold">{getPresetName(selectedPreset.id)}</span>
               </div>
+            </div>
 
-              <PhotoEditor 
-                imageSrc={imageSrc} 
-                preset={selectedPreset} 
-                language={language}
-                onCropChange={handleCropChange} 
-              />
-            </motion.div>
-          )}
-
-          {/* STEP 3: Export & Printable Grid */}
-          {step === 3 && (croppedPhoto || imageSrc) && (
-            <Step3ExportPrint
-              key="step-3"
-              croppedPhoto={croppedPhoto || imageSrc}
-              preset={selectedPreset}
+            <PhotoEditor 
+              imageSrc={imageSrc} 
+              preset={selectedPreset} 
               language={language}
-              onBackToEditor={() => setStep(2)}
-              onCreateNew={handleResetAll}
+              onCropChange={handleCropChange} 
             />
-          )}
+          </div>
+        )}
 
-        </AnimatePresence>
+        {/* STEP 3: Export & Printable Grid */}
+        {step === 3 && (croppedPhoto || imageSrc) && (
+          <Step3ExportPrint
+            key="step-3"
+            croppedPhoto={croppedPhoto || imageSrc}
+            preset={selectedPreset}
+            language={language}
+            onBackToEditor={() => setStep(2)}
+            onCreateNew={handleResetAll}
+          />
+        )}
       </main>
 
       {/* Footer information details */}

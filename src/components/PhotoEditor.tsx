@@ -49,6 +49,7 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
   
   // Offscreen canvas for background segmentation blending
   const segmentedCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const cropTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // States
   const [adjustments, setAdjustments] = useState<ImageAdjustments>({ ...DEFAULT_ADJUSTMENTS });
@@ -70,6 +71,24 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
   const [imgHeight, setImgHeight] = useState<number>(0);
   const [loadedImg, setLoadedImg] = useState<HTMLImageElement | null>(null);
 
+  // Helper to emit debounced cropped photo to parent state
+  const emitDebouncedCropChange = () => {
+    if (cropTimerRef.current) {
+      clearTimeout(cropTimerRef.current);
+    }
+    cropTimerRef.current = setTimeout(() => {
+      const displayCanvas = displayCanvasRef.current;
+      if (!displayCanvas) return;
+      try {
+        const mimeType = (removeBg && bgColor === 'transparent') ? 'image/png' : 'image/jpeg';
+        const finalDataUrl = displayCanvas.toDataURL(mimeType, 0.98);
+        onCropChange(finalDataUrl);
+      } catch (err) {
+        console.error('Error auto-exporting canvas photo:', err);
+      }
+    }, 150);
+  };
+
   // Load preset defaults when preset changes
   useEffect(() => {
     setBgColor(preset.defaultBgColor);
@@ -88,7 +107,9 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
     setAdjustments({ ...DEFAULT_ADJUSTMENTS });
 
     const img = new Image();
-    img.crossOrigin = 'anonymous';
+    if (imageSrc.startsWith('http')) {
+      img.crossOrigin = 'anonymous';
+    }
     img.referrerPolicy = 'no-referrer';
     img.src = imageSrc;
     
@@ -105,7 +126,7 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
       const segCanvas = segmentedCanvasRef.current;
       segCanvas.width = img.width;
       segCanvas.height = img.height;
-      const ctx = segCanvas.getContext('2d');
+      const ctx = segCanvas.getContext('2d', { willReadFrequently: true });
       if (ctx) {
         ctx.drawImage(img, 0, 0);
       }
@@ -139,9 +160,6 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
         setAiLog(t.aiProcessingStep2);
         const segmentResult = await segmentSelfie(img);
         if (segmentResult && segmentResult.confidenceMasks && segmentResult.confidenceMasks.length > 0) {
-          // MediaPipe SelfieSegmenter with outputConfidenceMasks=true returns:
-          // index 0: Background confidence mask
-          // index 1: Person (Foreground) confidence mask
           const personMaskIndex = segmentResult.confidenceMasks.length > 1 ? 1 : 0;
           const mask = segmentResult.confidenceMasks[personMaskIndex];
           maskData = mask.getAsFloat32Array();
@@ -172,7 +190,6 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
             setFaceDetected(true);
             setAiLog(t.aiFaceFound);
 
-            // Extract keypoints (normalized 0..1 relative to detection source)
             let normRightEyeX = 0, normRightEyeY = 0;
             let normLeftEyeX = 0, normLeftEyeY = 0;
             let normMouthY = 0;
@@ -190,17 +207,14 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
               }
             }
 
-            // Calculate rotation angle to level the eye line
             let rotationAngle = 0;
             if (hasKeypoints) {
               const dx = normLeftEyeX - normRightEyeX;
               const dy = normLeftEyeY - normRightEyeY;
               const rawAngle = -Math.atan2(dy, dx) * (180 / Math.PI);
-              // Clamp tilt angle to +/- 15 degrees for stability
               rotationAngle = Math.max(-15, Math.min(15, rawAngle));
             }
 
-            // Normalized face center & eye center
             const normFaceCenterX = hasKeypoints 
               ? (normRightEyeX + normLeftEyeX) / 2 
               : (box.originX + box.width / 2) / sourceWidth;
@@ -213,7 +227,6 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
               ? Math.hypot(normLeftEyeX - normRightEyeX, normLeftEyeY - normRightEyeY) 
               : (box.width / sourceWidth) * 0.5;
 
-            // Step A: Find Top of Head (Hairline/Top Head) using Segmentation Mask scan around face center
             let normTopHeadY = -1;
             if (maskData && mWidth > 0 && mHeight > 0) {
               const scanCenterX = Math.floor(normFaceCenterX * mWidth);
@@ -221,7 +234,6 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
               const startX = Math.max(0, scanCenterX - scanHalfWidth);
               const endX = Math.min(mWidth - 1, scanCenterX + scanHalfWidth);
 
-              // Find topmost pixel row where mask confidence > 0.35
               for (let y = 0; y < mHeight; y++) {
                 let foundRow = false;
                 for (let x = startX; x <= endX; x++) {
@@ -235,15 +247,12 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
               }
             }
 
-            // Fallback / Validation with Anatomical Proportions
-            // Human proportion: Top of head is approx 1.35x eyeDistance above eye line
             const geomTopHeadY = Math.max(0.01, normEyeCenterY - 1.35 * normEyeDistance);
 
             if (normTopHeadY <= 0 || (normEyeCenterY - normTopHeadY) < 0.6 * normEyeDistance || (normEyeCenterY - normTopHeadY) > 2.2 * normEyeDistance) {
               normTopHeadY = geomTopHeadY;
             }
 
-            // Step B: Find Chin Y
             let normChinY = 0;
             if (normMouthY > 0) {
               normChinY = normMouthY + 0.65 * normEyeDistance;
@@ -252,39 +261,26 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
             }
             normChinY = Math.min(0.99, normChinY);
 
-            // Step C: Calculate Full Head Height
             const normFullHeadHeight = Math.max(0.18, normChinY - normTopHeadY);
 
-            // Output Dimensions (High Resolution 300-600 DPI for Government Portals)
             const standardCanvasHeight = 1800;
             const standardCanvasWidth = Math.round(standardCanvasHeight * preset.aspectRatio);
 
-            // Target head height on canvas based on overlay guidelines
             const targetHeadHeightPercent = (preset.overlaySpecs.chinPercent - preset.overlaySpecs.headTopPercent) / 100;
             const targetHeadHeightPx = standardCanvasHeight * targetHeadHeightPercent;
 
-            // Base scale to fit entire image into canvas
             const baseScale = Math.min(standardCanvasWidth / img.width, standardCanvasHeight / img.height);
-            
-            // Calculate exact scale required to fit head height into guideline box
             const headScaleNeeded = targetHeadHeightPx / (normFullHeadHeight * img.height);
             
-            // Zoom factor relative to base scale
             const calculatedZoom = headScaleNeeded / baseScale;
             const rawZoom = Math.max(0.65, Math.min(1.75, calculatedZoom));
             const zoom = isFinite(rawZoom) && rawZoom > 0 ? rawZoom : 1.0;
             const finalScale = baseScale * zoom;
 
-            // Align top of head EXACTLY with preset overlay's headTopPercent (e.g. 12% of canvas height)
             const targetHeadTopPxOnCanvas = (preset.overlaySpecs.headTopPercent / 100) * standardCanvasHeight;
-            
-            // Horizontal centering offset:
             const rawOffsetX = (0.5 - normFaceCenterX) * img.width * finalScale;
-            
-            // Vertical offset: position normTopHeadY at targetHeadTopPxOnCanvas
             const rawOffsetY = targetHeadTopPxOnCanvas - (standardCanvasHeight / 2) - (normTopHeadY - 0.5) * img.height * finalScale;
 
-            // Clamp offsets safely so image doesn't get pushed off canvas
             const targetOffsetX = Math.max(-500, Math.min(500, isFinite(rawOffsetX) ? rawOffsetX : 0));
             const targetOffsetY = Math.max(-500, Math.min(500, isFinite(rawOffsetY) ? rawOffsetY : 0));
 
@@ -373,6 +369,9 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
       console.error('Lỗi khi chạy mô hình AI cục bộ:', err);
     } finally {
       setIsProcessing(false);
+      setTimeout(() => {
+        drawMainCanvas();
+      }, 50);
     }
   };
 
@@ -390,76 +389,82 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
     const originalImg = loadedImg || originalImageRef.current;
     if (!originalImg || !originalImg.width || !originalImg.height) return;
 
-    // Create offscreen canvas if it doesn't exist
     if (!segmentedCanvasRef.current) {
       segmentedCanvasRef.current = document.createElement('canvas');
     }
     const segCanvas = segmentedCanvasRef.current;
-    segCanvas.width = originalImg.width;
-    segCanvas.height = originalImg.height;
 
-    const ctx = segCanvas.getContext('2d');
+    // Scale down max dimension for offscreen segmentation canvas to max 1600px to ensure ultra-fast processing
+    const maxDim = Math.max(originalImg.width, originalImg.height);
+    const segScale = maxDim > 1600 ? 1600 / maxDim : 1;
+    const workWidth = Math.round(originalImg.width * segScale);
+    const workHeight = Math.round(originalImg.height * segScale);
+
+    segCanvas.width = workWidth;
+    segCanvas.height = workHeight;
+
+    const ctx = segCanvas.getContext('2d', { willReadFrequently: true });
     if (!ctx) return;
 
     // Draw original image first
-    ctx.drawImage(originalImg, 0, 0);
+    ctx.drawImage(originalImg, 0, 0, workWidth, workHeight);
 
     // Apply segmentation mask if enabled
     if (removeBg && segmentationMask && maskWidth > 0 && maskHeight > 0) {
-      const imgData = ctx.getImageData(0, 0, originalImg.width, originalImg.height);
-      const data = imgData.data;
+      try {
+        const imgData = ctx.getImageData(0, 0, workWidth, workHeight);
+        const data = imgData.data;
 
-      // Parse background color hex to RGB
-      let bgR = 255, bgG = 255, bgB = 255, bgA = 1;
-      if (bgColor === 'transparent') {
-        bgA = 0;
-      } else {
-        const hex = bgColor.replace('#', '');
-        bgR = parseInt(hex.substring(0, 2), 16);
-        bgG = parseInt(hex.substring(2, 4), 16);
-        bgB = parseInt(hex.substring(4, 6), 16);
-      }
+        // Parse background color hex to RGB
+        let bgR = 255, bgG = 255, bgB = 255, bgA = 1;
+        if (bgColor === 'transparent') {
+          bgA = 0;
+        } else {
+          const hex = bgColor.replace('#', '');
+          bgR = parseInt(hex.substring(0, 2), 16);
+          bgG = parseInt(hex.substring(2, 4), 16);
+          bgB = parseInt(hex.substring(4, 6), 16);
+        }
 
-      // Blend pixels
-      // Note: mask may have different dimensions than original image, so we must map coordinates
-      for (let y = 0; y < originalImg.height; y++) {
-        for (let x = 0; x < originalImg.width; x++) {
-          const pixelIndex = (y * originalImg.width + x) * 4;
+        // Blend pixels
+        for (let y = 0; y < workHeight; y++) {
+          for (let x = 0; x < workWidth; x++) {
+            const pixelIndex = (y * workWidth + x) * 4;
 
-          // Map original coordinates to mask coordinates
-          const maskX = Math.floor((x / originalImg.width) * maskWidth);
-          const maskY = Math.floor((y / originalImg.height) * maskHeight);
-          const maskIndex = maskY * maskWidth + maskX;
+            const maskX = Math.floor((x / workWidth) * maskWidth);
+            const maskY = Math.floor((y / workHeight) * maskHeight);
+            const maskIndex = maskY * maskWidth + maskX;
 
-          const confidence = segmentationMask[maskIndex] || 0; // 0.0 to 1.0 (1.0 is person)
+            const confidence = segmentationMask[maskIndex] || 0;
 
-          const origR = data[pixelIndex];
-          const origG = data[pixelIndex + 1];
-          const origB = data[pixelIndex + 2];
-          const origA = data[pixelIndex + 3] / 255;
+            const origR = data[pixelIndex];
+            const origG = data[pixelIndex + 1];
+            const origB = data[pixelIndex + 2];
+            const origA = data[pixelIndex + 3] / 255;
 
-          // Blend alpha
-          const finalAlpha = origA * confidence + bgA * (1 - confidence);
+            const finalAlpha = origA * confidence + bgA * (1 - confidence);
 
-          if (finalAlpha > 0) {
-            // Blend RGB
-            data[pixelIndex] = Math.round(origR * confidence + bgR * (1 - confidence));
-            data[pixelIndex + 1] = Math.round(origG * confidence + bgG * (1 - confidence));
-            data[pixelIndex + 2] = Math.round(origB * confidence + bgB * (1 - confidence));
-            data[pixelIndex + 3] = Math.round(finalAlpha * 255);
-          } else {
-            data[pixelIndex + 3] = 0;
+            if (finalAlpha > 0) {
+              data[pixelIndex] = Math.round(origR * confidence + bgR * (1 - confidence));
+              data[pixelIndex + 1] = Math.round(origG * confidence + bgG * (1 - confidence));
+              data[pixelIndex + 2] = Math.round(origB * confidence + bgB * (1 - confidence));
+              data[pixelIndex + 3] = Math.round(finalAlpha * 255);
+            } else {
+              data[pixelIndex + 3] = 0;
+            }
           }
         }
-      }
 
-      ctx.putImageData(imgData, 0, 0);
+        ctx.putImageData(imgData, 0, 0);
+      } catch (err) {
+        console.warn('Không thể đọc dữ liệu điểm ảnh (CORS/Tainted canvas):', err);
+      }
     }
 
     // Redraw the main canvas
     drawMainCanvas();
 
-  }, [loadedImg, imageSrc, removeBg, segmentationMask, bgColor, adjustments.zoom, adjustments.rotation, adjustments.offsetX, adjustments.offsetY]);
+  }, [loadedImg, imageSrc, removeBg, segmentationMask, bgColor]);
 
   // Redraw when adjustments change
   useEffect(() => {
@@ -475,8 +480,6 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
     const ctx = displayCanvas.getContext('2d');
     if (!ctx) return;
 
-    // High resolution output dimensions (1200x1800px for 4x6 at 300-600 DPI)
-    // Ensures width >= 480px required by Vietnam Ministry of Public Security portal
     const outputHeight = 1800;
     const outputWidth = Math.round(outputHeight * preset.aspectRatio);
 
@@ -485,12 +488,11 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
 
     ctx.clearRect(0, 0, outputWidth, outputHeight);
 
-    // Autofill background with selected background color (or preset default) to eliminate any black border gaps
     if (bgColor && bgColor !== 'transparent') {
       ctx.fillStyle = bgColor;
       ctx.fillRect(0, 0, outputWidth, outputHeight);
     } else if (bgColor === 'transparent') {
-      // Keep transparent for PNG
+      // Keep transparent
     } else {
       ctx.fillStyle = preset.defaultBgColor || '#FFFFFF';
       ctx.fillRect(0, 0, outputWidth, outputHeight);
@@ -504,38 +506,23 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
     const safeContrast = isFinite(adjustments.contrast) ? adjustments.contrast : 100;
     const safeSaturation = isFinite(adjustments.saturation) ? adjustments.saturation : 100;
 
-    // Apply color corrections
     ctx.filter = `brightness(${safeBrightness}%) contrast(${safeContrast}%) saturate(${safeSaturation}%)`;
 
     ctx.save();
-
-    // Move center to center of canvas
     ctx.translate(outputWidth / 2 + safeOffsetX, outputHeight / 2 + safeOffsetY);
-
-    // Rotate
     ctx.rotate((safeRotation * Math.PI) / 180);
 
-    // Zoom/Scale: we calculate scale based on fits
-    // Default fit scales image to match standard output dimensions
     const baseScale = Math.min(outputWidth / segCanvas.width, outputHeight / segCanvas.height);
     const finalScale = isFinite(baseScale) && baseScale > 0 ? baseScale * safeZoom : safeZoom;
 
     ctx.scale(finalScale, finalScale);
-
-    // Draw the pre-segmented image centered
     ctx.drawImage(segCanvas, -segCanvas.width / 2, -segCanvas.height / 2);
 
     ctx.restore();
-    ctx.filter = 'none'; // reset filter
+    ctx.filter = 'none';
 
-    // Auto-emit updated cropped photo to parent state so Step 3 tab is always ready
-    try {
-      const mimeType = (removeBg && bgColor === 'transparent') ? 'image/png' : 'image/jpeg';
-      const finalDataUrl = displayCanvas.toDataURL(mimeType, 0.98);
-      onCropChange(finalDataUrl);
-    } catch (err) {
-      console.error('Error auto-exporting canvas photo:', err);
-    }
+    // Auto-emit updated cropped photo using debouncing
+    emitDebouncedCropChange();
   };
 
   // Preset guide overlay specifications

@@ -370,7 +370,23 @@ export default function Step1SelectPhoto({
               <button
                 id={`select_sample_${sample.key}_btn`}
                 key={sample.key}
-                onClick={() => onPhotoSelected(sample.url)}
+                onClick={async () => {
+                  try {
+                    const response = await fetch(sample.url);
+                    const blob = await response.blob();
+                    const reader = new FileReader();
+                    reader.onloadend = () => {
+                      if (typeof reader.result === 'string') {
+                        onPhotoSelected(reader.result);
+                      } else {
+                        onPhotoSelected(sample.url);
+                      }
+                    };
+                    reader.readAsDataURL(blob);
+                  } catch (err) {
+                    onPhotoSelected(sample.url);
+                  }
+                }}
                 className="group flex flex-col items-center gap-2 p-1.5 bg-slate-900/60 hover:bg-slate-800 border border-slate-800 rounded-xl transition text-center select-none cursor-pointer"
               >
                 <div className="aspect-square w-full rounded-lg overflow-hidden bg-slate-950 relative">
