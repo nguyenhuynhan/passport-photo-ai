@@ -8,7 +8,7 @@ import {
   Maximize2, RotateCcw, ZoomIn, ZoomOut, Check, Sliders, 
   Sparkles, RefreshCw, Scissors, Compass, Sun, Eye, EyeOff
 } from 'lucide-react';
-import { PhotoPreset, ImageAdjustments, DEFAULT_ADJUSTMENTS, BG_COLOR_OPTIONS } from '../types';
+import { PhotoPreset, PassportStandard, ImageAdjustments, DEFAULT_ADJUSTMENTS, BG_COLOR_OPTIONS } from '../types';
 import { detectFace, segmentSelfie } from '../utils/ai';
 import { Language, TRANSLATIONS } from '../locales/translations';
 
@@ -21,6 +21,28 @@ interface PhotoEditorProps {
 
 export default function PhotoEditor({ imageSrc, preset, language = 'vi', onSave }: PhotoEditorProps) {
   const t = TRANSLATIONS[language];
+
+  const getPresetName = (presetId: PassportStandard) => {
+    switch (presetId) {
+      case PassportStandard.VIETNAM_4x6: return t.presetVi4x6Name;
+      case PassportStandard.VIETNAM_3x4: return t.presetVi3x4Name;
+      case PassportStandard.CHINA_VISA: return t.presetChinaName;
+      case PassportStandard.US_VISA: return t.presetUsVisaName;
+      case PassportStandard.SCHENGEN: return t.presetSchengenName;
+      case PassportStandard.CUSTOM: return t.presetCustomName;
+    }
+  };
+
+  const getPresetDesc = (presetId: PassportStandard) => {
+    switch (presetId) {
+      case PassportStandard.VIETNAM_4x6: return t.presetVi4x6Desc;
+      case PassportStandard.VIETNAM_3x4: return t.presetVi3x4Desc;
+      case PassportStandard.CHINA_VISA: return t.presetChinaDesc;
+      case PassportStandard.US_VISA: return t.presetUsVisaDesc;
+      case PassportStandard.SCHENGEN: return t.presetSchengenDesc;
+      case PassportStandard.CUSTOM: return t.presetCustomDesc;
+    }
+  };
   const containerRef = useRef<HTMLDivElement>(null);
   const displayCanvasRef = useRef<HTMLCanvasElement>(null);
   const originalImageRef = useRef<HTMLImageElement | null>(null);
@@ -531,11 +553,11 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onSave 
         {/* Presets and details view */}
         <div className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 space-y-2">
           <div className="flex justify-between items-center">
-            <span className="text-xs font-bold text-teal-400 tracking-wider uppercase">Tiêu chuẩn quốc gia:</span>
+            <span className="text-xs font-bold text-teal-400 tracking-wider uppercase">{t.nationalStandardLabel}</span>
             <span className="text-xs bg-slate-800 px-2 py-0.5 rounded-full text-slate-300">{preset.widthMm}x{preset.heightMm} mm</span>
           </div>
-          <h3 className="font-semibold text-slate-100 text-sm leading-snug">{preset.name}</h3>
-          <p className="text-xs text-slate-400 leading-relaxed">{preset.description}</p>
+          <h3 className="font-semibold text-slate-100 text-sm leading-snug">{getPresetName(preset.id)}</h3>
+          <p className="text-xs text-slate-400 leading-relaxed">{getPresetDesc(preset.id)}</p>
         </div>
 
         {/* Segment Background Selector */}

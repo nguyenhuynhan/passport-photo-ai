@@ -100,11 +100,20 @@ export interface Translations {
   footerCopyright: string;
   footerPrivacyText: string;
 
+  // Country Badges
+  presetViCountry: string;
+  presetChinaCountry: string;
+  presetUsCountry: string;
+  presetSchengenCountry: string;
+  presetCustomCountry: string;
+
   // Presets
   presetVi4x6Name: string;
   presetVi4x6Desc: string;
   presetVi3x4Name: string;
   presetVi3x4Desc: string;
+  presetChinaName: string;
+  presetChinaDesc: string;
   presetUsVisaName: string;
   presetUsVisaDesc: string;
   presetSchengenName: string;
@@ -200,10 +209,18 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     footerCopyright: '© 2026 AI Passport Photo Maker. Bản quyền được bảo lưu.',
     footerPrivacyText: 'Bảo mật tuyệt đối: Toàn bộ quá trình tách nền & phân tích AI được thực hiện 100% offline tại trình duyệt của bạn. Chúng tôi không bao giờ tải ảnh chân dung của bạn lên bất kỳ máy chủ nào.',
 
+    presetViCountry: 'VIỆT NAM',
+    presetChinaCountry: 'TRUNG QUỐC',
+    presetUsCountry: 'HOÀ KỲ (USA)',
+    presetSchengenCountry: 'CHÂU ÂU (EU)',
+    presetCustomCountry: 'TUỲ CHỌN',
+
     presetVi4x6Name: 'Ảnh Hộ chiếu Việt Nam (4x6 cm)',
     presetVi4x6Desc: 'Nền trắng. Đầu và vai thẳng. Đầu chiếm khoảng 70-80% chiều cao ảnh. Khoảng cách từ đỉnh đầu đến viền trên ảnh khoảng 2-4mm.',
     presetVi3x4Name: 'Ảnh Chứng chỉ / Hồ sơ Việt Nam (3x4 cm)',
     presetVi3x4Desc: 'Nền trắng hoặc nền xanh dương. Thường dùng cho chứng chỉ, bằng lái xe, thẻ học sinh/sinh viên.',
+    presetChinaName: 'Ảnh Hộ chiếu / Visa Trung Quốc (3.3x4.8 cm)',
+    presetChinaDesc: 'Nền trắng tinh. Mặt hướng thẳng, đầu chiếm từ 28mm-33mm chiều cao ảnh (khoảng 60-70%). Chiều rộng đầu 15mm-22mm.',
     presetUsVisaName: 'Ảnh Hộ chiếu / Visa Mỹ (2x2 inch)',
     presetUsVisaDesc: 'Nền trắng tinh. Đầu phải chiếm từ 50% đến 69% tổng chiều cao của ảnh. Mắt cách cạnh dưới 56%-69%.',
     presetSchengenName: 'Ảnh Visa Châu Âu / Schengen (3.5x4.5 cm)',
@@ -298,10 +315,18 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     footerCopyright: '© 2026 AI Passport Photo Maker. All rights reserved.',
     footerPrivacyText: '100% Private: All AI background removal and biometric analysis run 100% offline inside your browser. We never upload your portrait photos to any server.',
 
+    presetViCountry: 'VIETNAM',
+    presetChinaCountry: 'CHINA',
+    presetUsCountry: 'USA',
+    presetSchengenCountry: 'EUROPE (EU)',
+    presetCustomCountry: 'CUSTOM',
+
     presetVi4x6Name: 'Vietnam Passport Photo (4x6 cm)',
     presetVi4x6Desc: 'White background. Head and shoulders straight. Head takes up 70-80% of height.',
     presetVi3x4Name: 'Vietnam ID / License Photo (3x4 cm)',
     presetVi3x4Desc: 'White or light blue background. Used for licenses, student cards, and certificates.',
+    presetChinaName: 'Chinese Passport / Visa Photo (3.3x4.8 cm)',
+    presetChinaDesc: 'Pure white background. Head width 15-22mm, head height 28-33mm (approx 60-70% of height).',
     presetUsVisaName: 'US Passport / Visa Photo (2x2 inch)',
     presetUsVisaDesc: 'Off-white or white background. Head must be 50%-69% of image height.',
     presetSchengenName: 'Schengen / Europe Visa Photo (3.5x4.5 cm)',
@@ -339,7 +364,7 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     guidelinesTitle: '官方护照照片合规要求：',
     guidelineItem1: '头部端正，眼睛直视镜头。',
     guidelineItem2: '表情自然中性，请勿露齿笑，双眼睁开。',
-    guidelineItem3: '面部光线均匀，无浓重阴影。',
+    guidelineItem3: '面部光照均匀，无浓重阴影。',
     guidelineItem4: '请勿佩戴墨镜或帽子（宗教服饰除外）。',
 
     editingPresetLabel: '正在编辑：',
@@ -396,10 +421,18 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     footerCopyright: '© 2026 AI Passport Photo Maker. 版权所有。',
     footerPrivacyText: '100% 隐私安全：所有 AI 抠图与生物特征分析均在您的浏览器本地 100% 离线运行，我们绝不会将您的照片上传至任何服务器。',
 
+    presetViCountry: '越南',
+    presetChinaCountry: '中国',
+    presetUsCountry: '美国',
+    presetSchengenCountry: '欧洲 (EU)',
+    presetCustomCountry: '自定义',
+
     presetVi4x6Name: '越南护照照片 (4x6 cm)',
     presetVi4x6Desc: '白底，头部和肩膀端正，头部占照片高度 70-80%。',
     presetVi3x4Name: '越南证件 / 证书照片 (3x4 cm)',
     presetVi3x4Desc: '白底或蓝底，适用于驾照、学生证及各类证书。',
+    presetChinaName: '中国护照 / 签证照片 (3.3x4.8 cm)',
+    presetChinaDesc: '纯白底。头部宽度 15-22mm，头部高度 28-33mm（约占照片总高度的 60-70%）。',
     presetUsVisaName: '美国护照 / 签证照片 (2x2 英寸)',
     presetUsVisaDesc: '纯白底，头部必须占据总高度的 50% 至 69%。',
     presetSchengenName: '欧洲申根签证照片 (3.5x4.5 cm)',

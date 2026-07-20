@@ -69,10 +69,22 @@ export default function App() {
   const [dragActive, setDragActive] = useState<boolean>(false);
 
   // Helper for localized presets
+  const getPresetCountry = (presetId: PassportStandard) => {
+    switch (presetId) {
+      case PassportStandard.VIETNAM_4x6:
+      case PassportStandard.VIETNAM_3x4: return t.presetViCountry;
+      case PassportStandard.CHINA_VISA: return t.presetChinaCountry;
+      case PassportStandard.US_VISA: return t.presetUsCountry;
+      case PassportStandard.SCHENGEN: return t.presetSchengenCountry;
+      case PassportStandard.CUSTOM: return t.presetCustomCountry;
+    }
+  };
+
   const getPresetName = (presetId: PassportStandard) => {
     switch (presetId) {
       case PassportStandard.VIETNAM_4x6: return t.presetVi4x6Name;
       case PassportStandard.VIETNAM_3x4: return t.presetVi3x4Name;
+      case PassportStandard.CHINA_VISA: return t.presetChinaName;
       case PassportStandard.US_VISA: return t.presetUsVisaName;
       case PassportStandard.SCHENGEN: return t.presetSchengenName;
       case PassportStandard.CUSTOM: return t.presetCustomName;
@@ -83,6 +95,7 @@ export default function App() {
     switch (presetId) {
       case PassportStandard.VIETNAM_4x6: return t.presetVi4x6Desc;
       case PassportStandard.VIETNAM_3x4: return t.presetVi3x4Desc;
+      case PassportStandard.CHINA_VISA: return t.presetChinaDesc;
       case PassportStandard.US_VISA: return t.presetUsVisaDesc;
       case PassportStandard.SCHENGEN: return t.presetSchengenDesc;
       case PassportStandard.CUSTOM: return t.presetCustomDesc;
@@ -327,7 +340,7 @@ export default function App() {
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
                           <span className="text-[10px] bg-slate-800 text-slate-300 font-semibold px-2 py-0.5 rounded-md uppercase">
-                            {preset.country}
+                            {getPresetCountry(preset.id)}
                           </span>
                           <span className="text-xs font-mono font-semibold text-teal-400">
                             {preset.widthMm}x{preset.heightMm} mm

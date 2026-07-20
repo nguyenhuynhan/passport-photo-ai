@@ -6,6 +6,7 @@
 export enum PassportStandard {
   VIETNAM_4x6 = 'VIETNAM_4x6',
   VIETNAM_3x4 = 'VIETNAM_3x4',
+  CHINA_VISA = 'CHINA_VISA',
   US_VISA = 'US_VISA',
   SCHENGEN = 'SCHENGEN',
   CUSTOM = 'CUSTOM',
@@ -62,6 +63,23 @@ export const PHOTO_PRESETS: Record<PassportStandard, PhotoPreset> = {
     overlaySpecs: {
       headTopPercent: 15,
       chinPercent: 88,
+      eyeLinePercent: 42,
+    }
+  },
+  [PassportStandard.CHINA_VISA]: {
+    id: PassportStandard.CHINA_VISA,
+    name: 'Ảnh Hộ chiếu / Visa Trung Quốc (3.3x4.8 cm)',
+    country: 'Trung Quốc',
+    widthMm: 33,
+    heightMm: 48,
+    aspectRatio: 3.3 / 4.8,
+    faceHeightMinPercent: 60,
+    faceHeightMaxPercent: 70,
+    defaultBgColor: '#FFFFFF',
+    description: 'Nền trắng tinh. Mặt hướng thẳng, đầu chiếm từ 28mm-33mm chiều cao ảnh (khoảng 60-70%). Chiều rộng đầu 15mm-22mm.',
+    overlaySpecs: {
+      headTopPercent: 12,
+      chinPercent: 80,
       eyeLinePercent: 42,
     }
   },
