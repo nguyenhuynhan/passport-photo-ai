@@ -52,6 +52,7 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onSave 
 
   // States
   const [adjustments, setAdjustments] = useState<ImageAdjustments>({ ...DEFAULT_ADJUSTMENTS });
+  const [initialAdjustments, setInitialAdjustments] = useState<ImageAdjustments | null>(null);
   const [bgColor, setBgColor] = useState<string>(preset.defaultBgColor);
   const [removeBg, setRemoveBg] = useState<boolean>(true);
   const [showGuide, setShowGuide] = useState<boolean>(true);
@@ -83,6 +84,7 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onSave 
     originalImageRef.current = null;
     setSegmentationMask(null);
     setFaceDetected(false);
+    setInitialAdjustments(null);
     setAdjustments({ ...DEFAULT_ADJUSTMENTS });
 
     const img = new Image();
@@ -286,13 +288,15 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onSave 
             const targetOffsetX = Math.max(-180, Math.min(180, isFinite(rawOffsetX) ? rawOffsetX : 0));
             const targetOffsetY = Math.max(-180, Math.min(180, isFinite(rawOffsetY) ? rawOffsetY : 0));
 
-            setAdjustments({
+            const computedAdjustments: ImageAdjustments = {
               ...DEFAULT_ADJUSTMENTS,
               zoom: Number(zoom.toFixed(2)),
               rotation: Number((isFinite(rotationAngle) ? rotationAngle : 0).toFixed(1)),
               offsetX: Number(targetOffsetX.toFixed(0)),
               offsetY: Number(targetOffsetY.toFixed(0)),
-            });
+            };
+            setAdjustments(computedAdjustments);
+            setInitialAdjustments(computedAdjustments);
           }
         }
       } catch (faceErr) {
@@ -348,19 +352,22 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onSave 
           const targetOffsetX = Math.max(-180, Math.min(180, isFinite(rawOffsetX) ? rawOffsetX : 0));
           const targetOffsetY = Math.max(-180, Math.min(180, isFinite(rawOffsetY) ? rawOffsetY : 0));
 
-          setAdjustments({
+          const computedAdjustments: ImageAdjustments = {
             ...DEFAULT_ADJUSTMENTS,
             zoom: Number(zoom.toFixed(2)),
             rotation: 0,
             offsetX: Number(targetOffsetX.toFixed(0)),
             offsetY: Number(targetOffsetY.toFixed(0)),
-          });
+          };
+          setAdjustments(computedAdjustments);
+          setInitialAdjustments(computedAdjustments);
         }
       }
 
       if (!faceFound) {
         setFaceDetected(false);
         setAiLog(t.aiNoFace);
+        setInitialAdjustments({ ...DEFAULT_ADJUSTMENTS });
       }
     } catch (err) {
       console.error('Lỗi khi chạy mô hình AI cục bộ:', err);
@@ -369,11 +376,12 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onSave 
     }
   };
 
-  // Re-run AI Auto Align calculation
-  const triggerAutoAlign = () => {
-    const originalImg = loadedImg || originalImageRef.current;
-    if (originalImg) {
-      runAIProcessing(originalImg);
+  // Restore initial AI alignment calculation
+  const restoreInitialAlign = () => {
+    if (initialAdjustments) {
+      setAdjustments({ ...initialAdjustments });
+    } else {
+      setAdjustments({ ...DEFAULT_ADJUSTMENTS });
     }
   };
 
@@ -626,8 +634,8 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onSave 
         {/* Floating actions under preview */}
         <div className="flex flex-wrap gap-2 w-full max-w-[360px] justify-center">
           <button
-            id="trigger_auto_align_btn"
-            onClick={triggerAutoAlign}
+            id="restore_initial_align_btn"
+            onClick={restoreInitialAlign}
             disabled={isProcessing}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-500/20 text-teal-300 hover:bg-teal-500/30 border border-teal-500/30 rounded-lg text-xs font-semibold transition active:scale-95 disabled:opacity-50"
           >
