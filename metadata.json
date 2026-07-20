@@ -1,0 +1,6 @@
+{
+  "name": "Passport Photo AI",
+  "description": "Chụp ảnh và tạo ảnh hộ chiếu/visa đúng chuẩn quốc tế hoàn toàn bảo mật trên trình duyệt thiết bị của bạn bằng công nghệ AI cục bộ.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
