@@ -67,6 +67,7 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onSave 
   // Dimensions of original loaded image
   const [imgWidth, setImgWidth] = useState<number>(0);
   const [imgHeight, setImgHeight] = useState<number>(0);
+  const [loadedImg, setLoadedImg] = useState<HTMLImageElement | null>(null);
 
   // Load preset defaults when preset changes
   useEffect(() => {
@@ -77,27 +78,50 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onSave 
   useEffect(() => {
     if (!imageSrc) return;
 
+    // Reset previous image states
+    setLoadedImg(null);
+    originalImageRef.current = null;
+    setSegmentationMask(null);
+    setFaceDetected(false);
+    setAdjustments({ ...DEFAULT_ADJUSTMENTS });
+
     const img = new Image();
     img.crossOrigin = 'anonymous';
     img.referrerPolicy = 'no-referrer';
     img.src = imageSrc;
+    
     img.onload = async () => {
       originalImageRef.current = img;
       setImgWidth(img.width);
       setImgHeight(img.height);
-      
-      // Reset adjustments first
-      setAdjustments({ ...DEFAULT_ADJUSTMENTS });
-      setSegmentationMask(null);
-      setFaceDetected(false);
+      setLoadedImg(img);
+
+      // Immediately render base image to offscreen canvas so preview shows right away
+      if (!segmentedCanvasRef.current) {
+        segmentedCanvasRef.current = document.createElement('canvas');
+      }
+      const segCanvas = segmentedCanvasRef.current;
+      segCanvas.width = img.width;
+      segCanvas.height = img.height;
+      const ctx = segCanvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(img, 0, 0);
+      }
 
       // Run AI
       await runAIProcessing(img);
+    };
+
+    img.onerror = (err) => {
+      console.error('Lỗi khi tải ảnh:', err);
+      setIsProcessing(false);
     };
   }, [imageSrc]);
 
   // Run face detection and segmentation with Hybrid Alignment algorithm
   const runAIProcessing = async (img: HTMLImageElement) => {
+    if (!img || !img.width || !img.height) return;
+
     setIsProcessing(true);
     setAiLog(t.aiProcessingStep1);
     // Yield to browser UI thread so loading spinner renders immediately
@@ -113,7 +137,11 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onSave 
         setAiLog(t.aiProcessingStep2);
         const segmentResult = await segmentSelfie(img);
         if (segmentResult && segmentResult.confidenceMasks && segmentResult.confidenceMasks.length > 0) {
-          const mask = segmentResult.confidenceMasks[0];
+          // MediaPipe SelfieSegmenter with outputConfidenceMasks=true returns:
+          // index 0: Background confidence mask
+          // index 1: Person (Foreground) confidence mask
+          const personMaskIndex = segmentResult.confidenceMasks.length > 1 ? 1 : 0;
+          const mask = segmentResult.confidenceMasks[personMaskIndex];
           maskData = mask.getAsFloat32Array();
           mWidth = mask.width;
           mHeight = mask.height;
@@ -241,22 +269,27 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onSave 
             
             // Zoom factor relative to base scale
             const calculatedZoom = headScaleNeeded / baseScale;
-            const zoom = Math.max(0.65, Math.min(1.75, calculatedZoom));
+            const rawZoom = Math.max(0.65, Math.min(1.75, calculatedZoom));
+            const zoom = isFinite(rawZoom) && rawZoom > 0 ? rawZoom : 1.0;
             const finalScale = baseScale * zoom;
 
             // Align top of head EXACTLY with preset overlay's headTopPercent (e.g. 12% of canvas height)
             const targetHeadTopPxOnCanvas = (preset.overlaySpecs.headTopPercent / 100) * standardCanvasHeight;
             
             // Horizontal centering offset:
-            const targetOffsetX = (0.5 - normFaceCenterX) * img.width * finalScale;
+            const rawOffsetX = (0.5 - normFaceCenterX) * img.width * finalScale;
             
             // Vertical offset: position normTopHeadY at targetHeadTopPxOnCanvas
-            const targetOffsetY = targetHeadTopPxOnCanvas - (standardCanvasHeight / 2) - (normTopHeadY - 0.5) * img.height * finalScale;
+            const rawOffsetY = targetHeadTopPxOnCanvas - (standardCanvasHeight / 2) - (normTopHeadY - 0.5) * img.height * finalScale;
+
+            // Clamp offsets safely so image doesn't get pushed off canvas
+            const targetOffsetX = Math.max(-180, Math.min(180, isFinite(rawOffsetX) ? rawOffsetX : 0));
+            const targetOffsetY = Math.max(-180, Math.min(180, isFinite(rawOffsetY) ? rawOffsetY : 0));
 
             setAdjustments({
               ...DEFAULT_ADJUSTMENTS,
               zoom: Number(zoom.toFixed(2)),
-              rotation: Number(rotationAngle.toFixed(1)),
+              rotation: Number((isFinite(rotationAngle) ? rotationAngle : 0).toFixed(1)),
               offsetX: Number(targetOffsetX.toFixed(0)),
               offsetY: Number(targetOffsetY.toFixed(0)),
             });
@@ -304,12 +337,16 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onSave 
           const headScaleNeeded = targetHeadHeightPx / (normFullHeadHeight * img.height);
 
           const calculatedZoom = headScaleNeeded / baseScale;
-          const zoom = Math.max(0.70, Math.min(1.40, calculatedZoom));
+          const rawZoom = Math.max(0.70, Math.min(1.40, calculatedZoom));
+          const zoom = isFinite(rawZoom) && rawZoom > 0 ? rawZoom : 1.0;
           const finalScale = baseScale * zoom;
 
           const targetHeadTopPxOnCanvas = (preset.overlaySpecs.headTopPercent / 100) * standardCanvasHeight;
-          const targetOffsetX = (0.5 - normFaceCenterX) * img.width * finalScale;
-          const targetOffsetY = targetHeadTopPxOnCanvas - (standardCanvasHeight / 2) - (normTopHeadY - 0.5) * img.height * finalScale;
+          const rawOffsetX = (0.5 - normFaceCenterX) * img.width * finalScale;
+          const rawOffsetY = targetHeadTopPxOnCanvas - (standardCanvasHeight / 2) - (normTopHeadY - 0.5) * img.height * finalScale;
+
+          const targetOffsetX = Math.max(-180, Math.min(180, isFinite(rawOffsetX) ? rawOffsetX : 0));
+          const targetOffsetY = Math.max(-180, Math.min(180, isFinite(rawOffsetY) ? rawOffsetY : 0));
 
           setAdjustments({
             ...DEFAULT_ADJUSTMENTS,
@@ -334,7 +371,7 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onSave 
 
   // Re-run AI Auto Align calculation
   const triggerAutoAlign = () => {
-    const originalImg = originalImageRef.current;
+    const originalImg = loadedImg || originalImageRef.current;
     if (originalImg) {
       runAIProcessing(originalImg);
     }
@@ -342,8 +379,8 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onSave 
 
   // Generate the segmented image on offscreen canvas whenever original image, mask, removeBg state, or bgColor changes
   useEffect(() => {
-    const originalImg = originalImageRef.current;
-    if (!originalImg) return;
+    const originalImg = loadedImg || originalImageRef.current;
+    if (!originalImg || !originalImg.width || !originalImg.height) return;
 
     // Create offscreen canvas if it doesn't exist
     if (!segmentedCanvasRef.current) {
@@ -414,7 +451,7 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onSave 
     // Redraw the main canvas
     drawMainCanvas();
 
-  }, [imageSrc, removeBg, segmentationMask, bgColor, adjustments.zoom, adjustments.rotation, adjustments.offsetX, adjustments.offsetY]);
+  }, [loadedImg, imageSrc, removeBg, segmentationMask, bgColor, adjustments.zoom, adjustments.rotation, adjustments.offsetX, adjustments.offsetY]);
 
   // Redraw when adjustments change
   useEffect(() => {
@@ -425,7 +462,7 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onSave 
   const drawMainCanvas = () => {
     const displayCanvas = displayCanvasRef.current;
     const segCanvas = segmentedCanvasRef.current;
-    if (!displayCanvas || !segCanvas) return;
+    if (!displayCanvas || !segCanvas || !segCanvas.width || !segCanvas.height) return;
 
     const ctx = displayCanvas.getContext('2d');
     if (!ctx) return;
@@ -439,25 +476,29 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onSave 
 
     ctx.clearRect(0, 0, outputWidth, outputHeight);
 
+    const safeZoom = isFinite(adjustments.zoom) && adjustments.zoom > 0 ? adjustments.zoom : 1.0;
+    const safeRotation = isFinite(adjustments.rotation) ? adjustments.rotation : 0;
+    const safeOffsetX = isFinite(adjustments.offsetX) ? adjustments.offsetX : 0;
+    const safeOffsetY = isFinite(adjustments.offsetY) ? adjustments.offsetY : 0;
+    const safeBrightness = isFinite(adjustments.brightness) ? adjustments.brightness : 100;
+    const safeContrast = isFinite(adjustments.contrast) ? adjustments.contrast : 100;
+    const safeSaturation = isFinite(adjustments.saturation) ? adjustments.saturation : 100;
+
     // Apply color corrections
-    // canvas 2D supports standard filters
-    ctx.filter = `brightness(${adjustments.brightness}%) contrast(${adjustments.contrast}%) saturate(${adjustments.saturation}%)`;
+    ctx.filter = `brightness(${safeBrightness}%) contrast(${safeContrast}%) saturate(${safeSaturation}%)`;
 
     ctx.save();
 
     // Move center to center of canvas
-    ctx.translate(outputWidth / 2, outputHeight / 2);
-
-    // Translate adjustments offset
-    ctx.translate(adjustments.offsetX, adjustments.offsetY);
+    ctx.translate(outputWidth / 2 + safeOffsetX, outputHeight / 2 + safeOffsetY);
 
     // Rotate
-    ctx.rotate((adjustments.rotation * Math.PI) / 180);
+    ctx.rotate((safeRotation * Math.PI) / 180);
 
     // Zoom/Scale: we calculate scale based on fits
     // Default fit scales image to match standard output dimensions
     const baseScale = Math.min(outputWidth / segCanvas.width, outputHeight / segCanvas.height);
-    const finalScale = baseScale * adjustments.zoom;
+    const finalScale = isFinite(baseScale) && baseScale > 0 ? baseScale * safeZoom : safeZoom;
 
     ctx.scale(finalScale, finalScale);
 

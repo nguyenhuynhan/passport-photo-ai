@@ -165,6 +165,7 @@ export default function App() {
       };
       reader.readAsDataURL(file);
     }
+    e.target.value = '';
   };
 
   // Handle Drag Events
