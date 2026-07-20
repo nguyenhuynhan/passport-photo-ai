@@ -333,3 +333,34 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     presetCustomDesc: '自由设置宽度、高度和人脸比例，满足个性化需求。',
   }
 };
+
+export function detectInitialLanguage(): Language {
+  // 1. Check if user manually saved language preference in localStorage
+  if (typeof window !== 'undefined' && window.localStorage) {
+    const saved = window.localStorage.getItem('passport_app_lang') as Language;
+    if (saved && (saved === 'vi' || saved === 'en' || saved === 'zh')) {
+      return saved;
+    }
+  }
+
+  // 2. Detect browser default language
+  if (typeof navigator !== 'undefined') {
+    const browserLang = (navigator.language || (navigator as any).userLanguage || '').toLowerCase();
+    if (browserLang.startsWith('zh')) {
+      return 'zh';
+    }
+    if (browserLang.startsWith('vi')) {
+      return 'vi';
+    }
+  }
+
+  // Default fallback for international browsers
+  return 'vi';
+}
+
+export function saveLanguagePreference(lang: Language) {
+  if (typeof window !== 'undefined' && window.localStorage) {
+    window.localStorage.setItem('passport_app_lang', lang);
+  }
+}
+

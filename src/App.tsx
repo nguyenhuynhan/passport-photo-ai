@@ -17,7 +17,7 @@ import CameraCapture from './components/CameraCapture';
 import PhotoEditor from './components/PhotoEditor';
 import PrintingGrid from './components/PrintingGrid';
 import LanguageSelector from './components/LanguageSelector';
-import { Language, TRANSLATIONS } from './locales/translations';
+import { Language, TRANSLATIONS, detectInitialLanguage, saveLanguagePreference } from './locales/translations';
 
 // Sample photos for easy testing
 const SAMPLE_PHOTOS = [
@@ -44,8 +44,13 @@ const SAMPLE_PHOTOS = [
 ];
 
 export default function App() {
-  const [language, setLanguage] = useState<Language>('vi');
+  const [language, setLanguage] = useState<Language>(() => detectInitialLanguage());
   const t = TRANSLATIONS[language];
+
+  const handleLanguageChange = (newLang: Language) => {
+    setLanguage(newLang);
+    saveLanguagePreference(newLang);
+  };
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [selectedPreset, setSelectedPreset] = useState<PhotoPreset>(PHOTO_PRESETS[PassportStandard.VIETNAM_4x6]);
@@ -233,7 +238,7 @@ export default function App() {
 
           {/* Top Info Icons & Language Selector */}
           <div className="flex items-center gap-4 text-xs text-slate-400 font-medium">
-            <LanguageSelector currentLang={language} onLanguageChange={setLanguage} />
+            <LanguageSelector currentLang={language} onLanguageChange={handleLanguageChange} />
 
             <div className="hidden md:flex items-center gap-1.5 bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-800">
               <ShieldCheck className="w-4 h-4 text-emerald-400" />
