@@ -136,6 +136,38 @@ export const PHOTO_PRESETS: Record<PassportStandard, PhotoPreset> = {
   }
 };
 
+export function getPresetForLanguage(lang: string): PhotoPreset {
+  if (lang === 'vi') {
+    return PHOTO_PRESETS[PassportStandard.VIETNAM_4x6];
+  }
+  if (lang === 'zh') {
+    return PHOTO_PRESETS[PassportStandard.CHINA_VISA];
+  }
+  if (lang === 'en') {
+    return PHOTO_PRESETS[PassportStandard.US_VISA];
+  }
+  return PHOTO_PRESETS[PassportStandard.VIETNAM_4x6];
+}
+
+export function detectInitialPreset(): PhotoPreset {
+  if (typeof navigator !== 'undefined') {
+    const lang = (navigator.language || (navigator as any).userLanguage || '').toLowerCase();
+    if (lang.startsWith('vi')) {
+      return PHOTO_PRESETS[PassportStandard.VIETNAM_4x6];
+    }
+    if (lang.startsWith('zh')) {
+      return PHOTO_PRESETS[PassportStandard.CHINA_VISA];
+    }
+    if (lang === 'en-us' || lang.includes('us')) {
+      return PHOTO_PRESETS[PassportStandard.US_VISA];
+    }
+    if (lang.startsWith('en')) {
+      return PHOTO_PRESETS[PassportStandard.SCHENGEN];
+    }
+  }
+  return PHOTO_PRESETS[PassportStandard.VIETNAM_4x6];
+}
+
 export interface ImageAdjustments {
   zoom: number;       // scale multiplier (e.g. 1.0 = fit)
   rotation: number;   // tilt angle in degrees (-45 to 45)

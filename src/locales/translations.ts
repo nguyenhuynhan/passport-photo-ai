@@ -129,14 +129,14 @@ export interface Translations {
 
 export const TRANSLATIONS: Record<Language, Translations> = {
   vi: {
-    appTitle: 'Trình Tạo Ảnh Hộ Chiếu AI',
+    appTitle: 'idfoto',
     appSubtitle: 'Tự động căn chỉnh & tách nền chuẩn quốc tế trên thiết bị của bạn',
     privacyBadge: 'Bảo mật 100% (Offline)',
     localAiBadge: 'AI CỤC BỘ',
 
-    step1Title: '1. Chọn Chuẩn & Tải Ảnh',
-    step2Title: '2. Căn Chỉnh & Tách Nền',
-    step3Title: '3. Xếp Tấm In & Tải Về',
+    step1Title: 'Chọn ảnh',
+    step2Title: 'Căn chỉnh',
+    step3Title: 'Xuất',
 
     selectPresetTitle: 'Chọn chuẩn kích thước ảnh:',
     choosePhotoTitle: 'Tải lên hình chân dung:',
@@ -240,14 +240,14 @@ export const TRANSLATIONS: Record<Language, Translations> = {
   },
 
   en: {
-    appTitle: 'AI Passport Photo Maker',
+    appTitle: 'idfoto',
     appSubtitle: 'Automatic biometric alignment & AI background removal on your device',
     privacyBadge: '100% Private (Offline)',
     localAiBadge: 'LOCAL AI',
 
-    step1Title: '1. Select Preset & Upload',
-    step2Title: '2. Align & Remove BG',
-    step3Title: '3. Layout & Export',
+    step1Title: 'Select photo',
+    step2Title: 'Align',
+    step3Title: 'Export',
 
     selectPresetTitle: 'Select photo dimensions preset:',
     choosePhotoTitle: 'Upload portrait photo:',
@@ -351,14 +351,14 @@ export const TRANSLATIONS: Record<Language, Translations> = {
   },
 
   zh: {
-    appTitle: 'AI 护照照片制作工具',
+    appTitle: 'idfoto',
     appSubtitle: '在您的设备上自动完成生物特征对齐与 AI 背景替换',
     privacyBadge: '100% 隐私保护 (离线运行)',
     localAiBadge: '本地 AI',
 
-    step1Title: '1. 选择规格与上传',
-    step2Title: '2. 智能对齐与抠图',
-    step3Title: '3. 排版与导出',
+    step1Title: '选择照片',
+    step2Title: '对齐',
+    step3Title: '导出',
 
     selectPresetTitle: '选择照片尺寸规格：',
     choosePhotoTitle: '上传人像照片：',

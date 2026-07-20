@@ -16,10 +16,10 @@ interface PhotoEditorProps {
   imageSrc: string;
   preset: PhotoPreset;
   language?: Language;
-  onSave: (outputBase64: string) => void;
+  onCropChange: (outputBase64: string) => void;
 }
 
-export default function PhotoEditor({ imageSrc, preset, language = 'vi', onSave }: PhotoEditorProps) {
+export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropChange }: PhotoEditorProps) {
   const t = TRANSLATIONS[language];
 
   const getPresetName = (presetId: PassportStandard) => {
@@ -484,6 +484,17 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onSave 
 
     ctx.clearRect(0, 0, outputWidth, outputHeight);
 
+    // Autofill background with selected background color (or preset default) to eliminate any black border gaps
+    if (bgColor && bgColor !== 'transparent') {
+      ctx.fillStyle = bgColor;
+      ctx.fillRect(0, 0, outputWidth, outputHeight);
+    } else if (bgColor === 'transparent') {
+      // Keep transparent for PNG
+    } else {
+      ctx.fillStyle = preset.defaultBgColor || '#FFFFFF';
+      ctx.fillRect(0, 0, outputWidth, outputHeight);
+    }
+
     const safeZoom = isFinite(adjustments.zoom) && adjustments.zoom > 0 ? adjustments.zoom : 1.0;
     const safeRotation = isFinite(adjustments.rotation) ? adjustments.rotation : 0;
     const safeOffsetX = isFinite(adjustments.offsetX) ? adjustments.offsetX : 0;
@@ -515,6 +526,15 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onSave 
 
     ctx.restore();
     ctx.filter = 'none'; // reset filter
+
+    // Auto-emit updated cropped photo to parent state so Step 3 tab is always ready
+    try {
+      const mimeType = (removeBg && bgColor === 'transparent') ? 'image/png' : 'image/jpeg';
+      const finalDataUrl = displayCanvas.toDataURL(mimeType, 0.98);
+      onCropChange(finalDataUrl);
+    } catch (err) {
+      console.error('Error auto-exporting canvas photo:', err);
+    }
   };
 
   // Preset guide overlay specifications
@@ -542,7 +562,7 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onSave 
 
     // Export with highest quality
     const finalDataUrl = displayCanvas.toDataURL('image/jpeg', 0.98);
-    onSave(finalDataUrl);
+    onCropChange(finalDataUrl);
   };
 
   return (
@@ -889,15 +909,6 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onSave 
             </div>
           </div>
         </div>
-
-        {/* Next / Export Action */}
-        <button
-          id="confirm_export_photo_btn"
-          onClick={handleExport}
-          className="w-full py-4 bg-teal-500 hover:bg-teal-600 font-bold text-slate-900 rounded-2xl shadow-lg hover:shadow-teal-500/20 active:scale-[0.99] transition text-center block text-sm"
-        >
-          Xác nhận ảnh & Xuất File In
-        </button>
 
       </div>
 
