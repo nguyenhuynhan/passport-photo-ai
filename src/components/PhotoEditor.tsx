@@ -159,34 +159,45 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onSave 
             const normFaceCenterX = (box.originX + box.width / 2) / sourceWidth;
             const normFaceCenterY = (box.originY + box.height / 2) / sourceHeight;
 
-            // Estimated full head height (hair to chin) is ~1.35x face box height
-            const normEstimatedHeadHeight = normBoxHeight * 1.35;
-
-            // Target head height percentage for passport (e.g., 70% of canvas height)
-            const targetHeadHeightPercent = (preset.faceHeightMinPercent + preset.faceHeightMaxPercent) / 200;
+            // Estimated top of head Y (hairline/top of head is above eyebrows/box.originY)
+            const normTopHeadY = Math.max(0.01, (box.originY - box.height * 0.40) / sourceHeight);
+            // Chin Y is at bottom of face box
+            const normChinY = Math.min(0.99, (box.originY + box.height * 1.05) / sourceHeight);
+            // Full head height from top of hair to chin:
+            const normFullHeadHeight = Math.max(0.20, normChinY - normTopHeadY);
 
             const standardCanvasHeight = 600;
             const standardCanvasWidth = standardCanvasHeight * preset.aspectRatio;
 
-            // baseScale fits img inside standardCanvasWidth x standardCanvasHeight
+            // Target head height on canvas based on overlay guidelines (headTopPercent to chinPercent)
+            const targetHeadHeightPercent = ((preset.overlaySpecs.chinPercent - preset.overlaySpecs.headTopPercent) / 100);
+            const targetHeadHeightPx = standardCanvasHeight * targetHeadHeightPercent;
+
+            // Base scale to fit entire image into canvas
             const baseScale = Math.min(standardCanvasWidth / img.width, standardCanvasHeight / img.height);
+            
+            // Calculate scale required so that full head height matches targetHeadHeightPx
+            const headScaleNeeded = targetHeadHeightPx / (normFullHeadHeight * img.height);
+            
+            // Zoom factor relative to base scale
+            let calculatedZoom = headScaleNeeded / baseScale;
 
-            // Head height at zoom = 1.0 on canvas:
-            const headHeightOnCanvasAtZoom1 = normEstimatedHeadHeight * img.height * baseScale;
-            const targetHeadHeightPxOnCanvas = standardCanvasHeight * targetHeadHeightPercent;
-
-            // Target zoom multiplier:
-            const calculatedZoom = targetHeadHeightPxOnCanvas / Math.max(1, headHeightOnCanvasAtZoom1);
-            const zoom = Math.max(0.5, Math.min(3.5, calculatedZoom));
-
-            // Shift crop center slightly up (0.15 of face height) to capture top of hair
-            const normCropCenterY = normFaceCenterY - normBoxHeight * 0.15;
-
+            // CRITICAL CAP: If photo is ALREADY a close-up portrait (head > 45% of photo height),
+            // cap zoom to prevent massive over-zooming that cuts off forehead and shoulders!
+            if (normFullHeadHeight > 0.45) {
+              calculatedZoom = Math.min(calculatedZoom, 1.05);
+            }
+            const zoom = Math.max(0.6, Math.min(1.8, calculatedZoom));
             const finalScale = baseScale * zoom;
 
-            // Canvas center offsets (translating image so crop center aligns with canvas center):
+            // Align top of head EXACTLY with preset overlay's headTopPercent (e.g. 12% of canvas height)
+            const targetHeadTopPxOnCanvas = (preset.overlaySpecs.headTopPercent / 100) * standardCanvasHeight;
+            
+            // Horizontal centering offset:
             const targetOffsetX = (0.5 - normFaceCenterX) * img.width * finalScale;
-            const targetOffsetY = (0.5 - normCropCenterY) * img.height * finalScale;
+            
+            // Vertical offset: position normTopHeadY at targetHeadTopPxOnCanvas
+            const targetOffsetY = targetHeadTopPxOnCanvas - (standardCanvasHeight / 2) - (normTopHeadY - 0.5) * img.height * finalScale;
 
             setAdjustments({
               ...DEFAULT_ADJUSTMENTS,
@@ -225,26 +236,22 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onSave 
           setAiLog('Đã tự động định vị khuôn mặt từ nhận diện chân dung!');
 
           const normTopHeadY = minY / mHeight;
-          const normBodyWidth = (maxX - minX) / mWidth;
           const normFaceCenterX = ((minX + maxX) / 2) / mWidth;
+          const normPersonHeight = (maxY - minY) / mHeight;
 
-          const normEstimatedHeadHeight = Math.min(((maxY - minY) / mHeight) * 0.45, normBodyWidth * 0.75);
-          const normCropCenterY = normTopHeadY + normEstimatedHeadHeight * 0.5;
+          // Estimated head height from person segmentation top
+          const normFullHeadHeight = Math.min(0.40, normPersonHeight * 0.40);
 
-          const targetHeadHeightPercent = (preset.faceHeightMinPercent + preset.faceHeightMaxPercent) / 200;
           const standardCanvasHeight = 600;
           const standardCanvasWidth = standardCanvasHeight * preset.aspectRatio;
 
           const baseScale = Math.min(standardCanvasWidth / img.width, standardCanvasHeight / img.height);
-          const headHeightOnCanvasAtZoom1 = normEstimatedHeadHeight * img.height * baseScale;
-          const targetHeadHeightPxOnCanvas = standardCanvasHeight * targetHeadHeightPercent;
-
-          const calculatedZoom = targetHeadHeightPxOnCanvas / Math.max(1, headHeightOnCanvasAtZoom1);
-          const zoom = Math.max(0.5, Math.min(3.5, calculatedZoom));
-
+          const zoom = normPersonHeight > 0.6 ? 1.0 : 1.15;
           const finalScale = baseScale * zoom;
+
+          const targetHeadTopPxOnCanvas = (preset.overlaySpecs.headTopPercent / 100) * standardCanvasHeight;
           const targetOffsetX = (0.5 - normFaceCenterX) * img.width * finalScale;
-          const targetOffsetY = (0.5 - normCropCenterY) * img.height * finalScale;
+          const targetOffsetY = targetHeadTopPxOnCanvas - (standardCanvasHeight / 2) - (normTopHeadY - 0.5) * img.height * finalScale;
 
           setAdjustments({
             ...DEFAULT_ADJUSTMENTS,
