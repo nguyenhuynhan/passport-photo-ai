@@ -23,11 +23,14 @@ export async function initModels(onProgress?: (status: string) => void): Promise
         'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm'
       );
 
+      const faceModelPath = `${window.location.origin}/models/blaze_face_short_range.tflite`;
+      const selfieModelPath = `${window.location.origin}/models/selfie_segmenter.tflite`;
+
       onProgress?.('Đang tải mô hình Nhận diện khuôn mặt...');
       try {
         faceDetector = await FaceDetector.createFromOptions(visionTasks, {
           baseOptions: {
-            modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float32/1/blaze_face_short_range.tflite',
+            modelAssetPath: faceModelPath,
             delegate: 'GPU',
           },
           runningMode: 'IMAGE',
@@ -37,7 +40,7 @@ export async function initModels(onProgress?: (status: string) => void): Promise
         console.warn('Không khởi tạo được GPU delegate cho FaceDetector, chuyển sang CPU:', gpuError);
         faceDetector = await FaceDetector.createFromOptions(visionTasks, {
           baseOptions: {
-            modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float32/1/blaze_face_short_range.tflite',
+            modelAssetPath: faceModelPath,
             delegate: 'CPU',
           },
           runningMode: 'IMAGE',
@@ -49,7 +52,7 @@ export async function initModels(onProgress?: (status: string) => void): Promise
       try {
         imageSegmenter = await ImageSegmenter.createFromOptions(visionTasks, {
           baseOptions: {
-            modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float32/1/selfie_segmenter.tflite',
+            modelAssetPath: selfieModelPath,
             delegate: 'GPU',
           },
           runningMode: 'IMAGE',
@@ -60,7 +63,7 @@ export async function initModels(onProgress?: (status: string) => void): Promise
         console.warn('Không khởi tạo được GPU delegate cho ImageSegmenter, chuyển sang CPU:', gpuError);
         imageSegmenter = await ImageSegmenter.createFromOptions(visionTasks, {
           baseOptions: {
-            modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float32/1/selfie_segmenter.tflite',
+            modelAssetPath: selfieModelPath,
             delegate: 'CPU',
           },
           runningMode: 'IMAGE',
