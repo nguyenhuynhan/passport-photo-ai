@@ -96,7 +96,7 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onSave 
     };
   }, [imageSrc]);
 
-  // Run face detection and segmentation
+  // Run face detection and segmentation with Hybrid Alignment algorithm
   const runAIProcessing = async (img: HTMLImageElement) => {
     setIsProcessing(true);
     setAiLog(t.aiProcessingStep1);
@@ -104,7 +104,7 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onSave 
     await new Promise((r) => setTimeout(r, 60));
 
     try {
-      // 1. Run Segmentation first
+      // 1. Run Segmentation
       let maskData: Float32Array | null = null;
       let mWidth = 0;
       let mHeight = 0;
@@ -142,55 +142,106 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onSave 
             setFaceDetected(true);
             setAiLog(t.aiFaceFound);
 
-            let rotationAngle = 0;
-            if (detection.keypoints && detection.keypoints.length >= 2) {
-              const rightEye = detection.keypoints[0];
-              const leftEye = detection.keypoints[1];
-              const rightEyeX = rightEye.x * sourceWidth;
-              const rightEyeY = rightEye.y * sourceHeight;
-              const leftEyeX = leftEye.x * sourceWidth;
-              const leftEyeY = leftEye.y * sourceHeight;
+            // Extract keypoints (normalized 0..1 relative to detection source)
+            let normRightEyeX = 0, normRightEyeY = 0;
+            let normLeftEyeX = 0, normLeftEyeY = 0;
+            let normMouthY = 0;
+            let hasKeypoints = false;
 
-              const dx = leftEyeX - rightEyeX;
-              const dy = leftEyeY - rightEyeY;
-              rotationAngle = -Math.atan2(dy, dx) * (180 / Math.PI);
+            if (detection.keypoints && detection.keypoints.length >= 2) {
+              hasKeypoints = true;
+              normRightEyeX = detection.keypoints[0].x;
+              normRightEyeY = detection.keypoints[0].y;
+              normLeftEyeX = detection.keypoints[1].x;
+              normLeftEyeY = detection.keypoints[1].y;
+
+              if (detection.keypoints.length >= 4) {
+                normMouthY = detection.keypoints[3].y;
+              }
             }
 
-            // Normalize face bounding box relative to detection source
-            const normBoxHeight = box.height / sourceHeight;
-            const normBoxWidth = box.width / sourceWidth;
-            const normFaceCenterX = (box.originX + box.width / 2) / sourceWidth;
-            const normFaceCenterY = (box.originY + box.height / 2) / sourceHeight;
+            // Calculate rotation angle to level the eye line
+            let rotationAngle = 0;
+            if (hasKeypoints) {
+              const dx = normLeftEyeX - normRightEyeX;
+              const dy = normLeftEyeY - normRightEyeY;
+              const rawAngle = -Math.atan2(dy, dx) * (180 / Math.PI);
+              // Clamp tilt angle to +/- 15 degrees for stability
+              rotationAngle = Math.max(-15, Math.min(15, rawAngle));
+            }
 
-            // Estimated top of head Y (hairline/top of head is above eyebrows/box.originY)
-            const normTopHeadY = Math.max(0.01, (box.originY - box.height * 0.40) / sourceHeight);
-            // Chin Y is at bottom of face box
-            const normChinY = Math.min(0.99, (box.originY + box.height * 1.05) / sourceHeight);
-            // Full head height from top of hair to chin:
-            const normFullHeadHeight = Math.max(0.20, normChinY - normTopHeadY);
+            // Normalized face center & eye center
+            const normFaceCenterX = hasKeypoints 
+              ? (normRightEyeX + normLeftEyeX) / 2 
+              : (box.originX + box.width / 2) / sourceWidth;
 
+            const normEyeCenterY = hasKeypoints 
+              ? (normRightEyeY + normLeftEyeY) / 2 
+              : (box.originY + box.height * 0.35) / sourceHeight;
+
+            const normEyeDistance = hasKeypoints 
+              ? Math.hypot(normLeftEyeX - normRightEyeX, normLeftEyeY - normRightEyeY) 
+              : (box.width / sourceWidth) * 0.5;
+
+            // Step A: Find Top of Head (Hairline/Top Head) using Segmentation Mask scan around face center
+            let normTopHeadY = -1;
+            if (maskData && mWidth > 0 && mHeight > 0) {
+              const scanCenterX = Math.floor(normFaceCenterX * mWidth);
+              const scanHalfWidth = Math.max(3, Math.floor(normEyeDistance * mWidth * 0.9));
+              const startX = Math.max(0, scanCenterX - scanHalfWidth);
+              const endX = Math.min(mWidth - 1, scanCenterX + scanHalfWidth);
+
+              // Find topmost pixel row where mask confidence > 0.35
+              for (let y = 0; y < mHeight; y++) {
+                let foundRow = false;
+                for (let x = startX; x <= endX; x++) {
+                  if (maskData[y * mWidth + x] > 0.35) {
+                    normTopHeadY = y / mHeight;
+                    foundRow = true;
+                    break;
+                  }
+                }
+                if (foundRow) break;
+              }
+            }
+
+            // Fallback / Validation with Anatomical Proportions
+            // Human proportion: Top of head is approx 1.35x eyeDistance above eye line
+            const geomTopHeadY = Math.max(0.01, normEyeCenterY - 1.35 * normEyeDistance);
+
+            if (normTopHeadY <= 0 || (normEyeCenterY - normTopHeadY) < 0.6 * normEyeDistance || (normEyeCenterY - normTopHeadY) > 2.2 * normEyeDistance) {
+              normTopHeadY = geomTopHeadY;
+            }
+
+            // Step B: Find Chin Y
+            let normChinY = 0;
+            if (normMouthY > 0) {
+              normChinY = normMouthY + 0.65 * normEyeDistance;
+            } else {
+              normChinY = normEyeCenterY + 1.60 * normEyeDistance;
+            }
+            normChinY = Math.min(0.99, normChinY);
+
+            // Step C: Calculate Full Head Height
+            const normFullHeadHeight = Math.max(0.18, normChinY - normTopHeadY);
+
+            // Output Dimensions
             const standardCanvasHeight = 600;
             const standardCanvasWidth = standardCanvasHeight * preset.aspectRatio;
 
-            // Target head height on canvas based on overlay guidelines (headTopPercent to chinPercent)
-            const targetHeadHeightPercent = ((preset.overlaySpecs.chinPercent - preset.overlaySpecs.headTopPercent) / 100);
+            // Target head height on canvas based on overlay guidelines
+            const targetHeadHeightPercent = (preset.overlaySpecs.chinPercent - preset.overlaySpecs.headTopPercent) / 100;
             const targetHeadHeightPx = standardCanvasHeight * targetHeadHeightPercent;
 
             // Base scale to fit entire image into canvas
             const baseScale = Math.min(standardCanvasWidth / img.width, standardCanvasHeight / img.height);
             
-            // Calculate scale required so that full head height matches targetHeadHeightPx
+            // Calculate exact scale required to fit head height into guideline box
             const headScaleNeeded = targetHeadHeightPx / (normFullHeadHeight * img.height);
             
             // Zoom factor relative to base scale
-            let calculatedZoom = headScaleNeeded / baseScale;
-
-            // CRITICAL CAP: If photo is ALREADY a close-up portrait (head > 45% of photo height),
-            // cap zoom to prevent massive over-zooming that cuts off forehead and shoulders!
-            if (normFullHeadHeight > 0.45) {
-              calculatedZoom = Math.min(calculatedZoom, 1.05);
-            }
-            const zoom = Math.max(0.6, Math.min(1.8, calculatedZoom));
+            const calculatedZoom = headScaleNeeded / baseScale;
+            const zoom = Math.max(0.65, Math.min(1.75, calculatedZoom));
             const finalScale = baseScale * zoom;
 
             // Align top of head EXACTLY with preset overlay's headTopPercent (e.g. 12% of canvas height)
@@ -242,14 +293,18 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onSave 
           const normFaceCenterX = ((minX + maxX) / 2) / mWidth;
           const normPersonHeight = (maxY - minY) / mHeight;
 
-          // Estimated head height from person segmentation top
-          const normFullHeadHeight = Math.min(0.40, normPersonHeight * 0.40);
+          const normFullHeadHeight = Math.min(0.35, normPersonHeight * 0.35);
 
           const standardCanvasHeight = 600;
           const standardCanvasWidth = standardCanvasHeight * preset.aspectRatio;
 
           const baseScale = Math.min(standardCanvasWidth / img.width, standardCanvasHeight / img.height);
-          const zoom = normPersonHeight > 0.6 ? 1.0 : 1.15;
+          const targetHeadHeightPercent = (preset.overlaySpecs.chinPercent - preset.overlaySpecs.headTopPercent) / 100;
+          const targetHeadHeightPx = standardCanvasHeight * targetHeadHeightPercent;
+          const headScaleNeeded = targetHeadHeightPx / (normFullHeadHeight * img.height);
+
+          const calculatedZoom = headScaleNeeded / baseScale;
+          const zoom = Math.max(0.70, Math.min(1.40, calculatedZoom));
           const finalScale = baseScale * zoom;
 
           const targetHeadTopPxOnCanvas = (preset.overlaySpecs.headTopPercent / 100) * standardCanvasHeight;
