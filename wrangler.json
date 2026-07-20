@@ -2,7 +2,6 @@
   "name": "passport-photo-ai",
   "compatibility_date": "2026-07-20",
   "assets": {
-    "directory": "./dist",
-    "binding": "ASSETS"
+    "directory": "./dist"
   }
 }
