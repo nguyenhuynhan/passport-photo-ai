@@ -10,14 +10,17 @@ import {
 } from 'lucide-react';
 import { PhotoPreset, ImageAdjustments, DEFAULT_ADJUSTMENTS, BG_COLOR_OPTIONS } from '../types';
 import { detectFace, segmentSelfie } from '../utils/ai';
+import { Language, TRANSLATIONS } from '../locales/translations';
 
 interface PhotoEditorProps {
   imageSrc: string;
   preset: PhotoPreset;
+  language?: Language;
   onSave: (outputBase64: string) => void;
 }
 
-export default function PhotoEditor({ imageSrc, preset, onSave }: PhotoEditorProps) {
+export default function PhotoEditor({ imageSrc, preset, language = 'vi', onSave }: PhotoEditorProps) {
+  const t = TRANSLATIONS[language];
   const containerRef = useRef<HTMLDivElement>(null);
   const displayCanvasRef = useRef<HTMLCanvasElement>(null);
   const originalImageRef = useRef<HTMLImageElement | null>(null);
@@ -441,7 +444,7 @@ export default function PhotoEditor({ imageSrc, preset, onSave }: PhotoEditorPro
                     className="absolute left-0 right-0 border-t border-dashed border-yellow-400/80 flex items-center justify-end pr-2 text-[9px] text-yellow-300 font-medium"
                     style={{ top: `${guideLines.headTopPercent}%` }}
                   >
-                    Đỉnh đầu (Top Head)
+                    {t.topHead}
                   </div>
 
                   {/* Eye line guidelines */}
@@ -449,7 +452,7 @@ export default function PhotoEditor({ imageSrc, preset, onSave }: PhotoEditorPro
                     className="absolute left-0 right-0 border-t border-dotted border-sky-400/80 flex items-center justify-end pr-2 text-[9px] text-sky-300 font-medium"
                     style={{ top: `${guideLines.eyeLinePercent}%` }}
                   >
-                    Trục mắt (Eyes)
+                    {t.eyeLine}
                   </div>
 
                   {/* Chin guidelines */}
@@ -457,7 +460,7 @@ export default function PhotoEditor({ imageSrc, preset, onSave }: PhotoEditorPro
                     className="absolute left-0 right-0 border-t border-dashed border-yellow-400/80 flex items-center justify-end pr-2 text-[9px] text-yellow-300 font-medium"
                     style={{ top: `${guideLines.chinPercent}%` }}
                   >
-                    Cằm (Chin)
+                    {t.chin}
                   </div>
 
                   {/* Portrait Oval frame centered */}
@@ -492,7 +495,7 @@ export default function PhotoEditor({ imageSrc, preset, onSave }: PhotoEditorPro
             }`}
           >
             {showGuide ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
-            <span>Đường hướng dẫn</span>
+            <span>{t.toggleGuides}</span>
           </button>
 
           <button
@@ -501,7 +504,7 @@ export default function PhotoEditor({ imageSrc, preset, onSave }: PhotoEditorPro
             className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 text-slate-400 hover:text-slate-200 rounded-lg text-xs font-semibold transition"
           >
             <RotateCcw className="w-3.5 h-3.5" />
-            <span>Đặt lại trục</span>
+            <span>{t.resetTransform}</span>
           </button>
         </div>
 

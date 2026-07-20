@@ -16,32 +16,37 @@ import { initModels, isLoaded } from './utils/ai';
 import CameraCapture from './components/CameraCapture';
 import PhotoEditor from './components/PhotoEditor';
 import PrintingGrid from './components/PrintingGrid';
+import LanguageSelector from './components/LanguageSelector';
+import { Language, TRANSLATIONS } from './locales/translations';
 
 // Sample photos for easy testing
 const SAMPLE_PHOTOS = [
   {
-    name: 'Ảnh Mẫu (sample.jpg)',
+    name: 'samplePhotoLabel',
     url: '/sample.jpg',
     gender: 'Nam',
   },
   {
-    name: 'Mẫu Nam',
+    name: 'maleSample',
     url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=500&auto=format&fit=crop&q=80',
     gender: 'Nam',
   },
   {
-    name: 'Mẫu Nữ',
+    name: 'femaleSample',
     url: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=500&auto=format&fit=crop&q=80',
     gender: 'Nữ',
   },
   {
-    name: 'Mẫu Trẻ Em',
+    name: 'childSample',
     url: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=500&auto=format&fit=crop&q=80',
     gender: 'Bé gái',
   }
 ];
 
 export default function App() {
+  const [language, setLanguage] = useState<Language>('vi');
+  const t = TRANSLATIONS[language];
+
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [selectedPreset, setSelectedPreset] = useState<PhotoPreset>(PHOTO_PRESETS[PassportStandard.VIETNAM_4x6]);
   
@@ -66,6 +71,27 @@ export default function App() {
   // Drag and drop state
   const [dragActive, setDragActive] = useState<boolean>(false);
 
+  // Helper for localized presets
+  const getPresetName = (presetId: PassportStandard) => {
+    switch (presetId) {
+      case PassportStandard.VIETNAM_4x6: return t.presetVi4x6Name;
+      case PassportStandard.VIETNAM_3x4: return t.presetVi3x4Name;
+      case PassportStandard.US_VISA: return t.presetUsVisaName;
+      case PassportStandard.SCHENGEN: return t.presetSchengenName;
+      case PassportStandard.CUSTOM: return t.presetCustomName;
+    }
+  };
+
+  const getPresetDesc = (presetId: PassportStandard) => {
+    switch (presetId) {
+      case PassportStandard.VIETNAM_4x6: return t.presetVi4x6Desc;
+      case PassportStandard.VIETNAM_3x4: return t.presetVi3x4Desc;
+      case PassportStandard.US_VISA: return t.presetUsVisaDesc;
+      case PassportStandard.SCHENGEN: return t.presetSchengenDesc;
+      case PassportStandard.CUSTOM: return t.presetCustomDesc;
+    }
+  };
+
   // Auto-load models on mount or when switching to editor step
   useEffect(() => {
     // Lazy pre-load the models in background so it's ready when needed
@@ -88,15 +114,15 @@ export default function App() {
     if (selectedPreset.id === PassportStandard.CUSTOM) {
       setSelectedPreset({
         id: PassportStandard.CUSTOM,
-        name: 'Ảnh kích thước Tuỳ chỉnh',
-        country: 'Tuỳ chọn',
+        name: t.presetCustomName,
+        country: 'Custom',
         widthMm: customWidth,
         heightMm: customHeight,
         aspectRatio: customWidth / customHeight,
         faceHeightMinPercent: customFacePct - 5,
         faceHeightMaxPercent: customFacePct + 5,
         defaultBgColor: '#FFFFFF',
-        description: `Ảnh tự chọn ${customWidth}x${customHeight} mm với khuôn mặt chiếm khoảng ${customFacePct}% chiều cao ảnh.`,
+        description: t.presetCustomDesc,
         overlaySpecs: {
           headTopPercent: 15,
           chinPercent: 15 + customFacePct,
@@ -104,7 +130,7 @@ export default function App() {
         }
       });
     }
-  }, [customWidth, customHeight, customFacePct]);
+  }, [customWidth, customHeight, customFacePct, language]);
 
   // Handle local file upload
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -175,7 +201,7 @@ export default function App() {
   };
 
   // Reset and start over
-  const handleReset = () => {
+  const handleResetAll = () => {
     setImageSrc(null);
     setCroppedPhoto(null);
     setCameraMode(false);
@@ -196,20 +222,22 @@ export default function App() {
             </div>
             <div>
               <h1 className="font-display font-bold text-lg md:text-xl text-slate-100 tracking-tight flex items-center gap-2">
-                Trình Tạo Ảnh Hộ Chiếu AI
+                {t.appTitle}
                 <span className="text-[10px] bg-teal-500/15 text-teal-400 border border-teal-500/20 px-1.5 py-0.5 rounded-full font-mono font-medium uppercase tracking-wider animate-pulse">
-                  Local AI
+                  {t.localAiBadge}
                 </span>
               </h1>
-              <p className="text-xs text-slate-400">Tự động căn chỉnh & tách nền chuẩn quốc tế trên thiết bị của bạn</p>
+              <p className="text-xs text-slate-400">{t.appSubtitle}</p>
             </div>
           </div>
 
-          {/* Top Info Icons */}
+          {/* Top Info Icons & Language Selector */}
           <div className="flex items-center gap-4 text-xs text-slate-400 font-medium">
-            <div className="flex items-center gap-1.5 bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-800">
+            <LanguageSelector currentLang={language} onLanguageChange={setLanguage} />
+
+            <div className="hidden md:flex items-center gap-1.5 bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-800">
               <ShieldCheck className="w-4 h-4 text-emerald-400" />
-              <span>Bảo mật 100% (Offline)</span>
+              <span>{t.privacyBadge}</span>
             </div>
           </div>
 
@@ -222,9 +250,9 @@ export default function App() {
         {/* Step Progress Tracker HUD */}
         <div className="grid grid-cols-3 max-w-2xl mx-auto border-b border-slate-900 pb-2 relative gap-2">
           {[
-            { num: 1, text: 'Chọn chuẩn & Tải ảnh' },
-            { num: 2, text: 'Căn chỉnh & Tách nền' },
-            { num: 3, text: 'Xếp tấm in & Tải về' }
+            { num: 1, text: t.step1Title },
+            { num: 2, text: t.step2Title },
+            { num: 3, text: t.step3Title }
           ].map((s) => (
             <div 
               key={s.num} 
@@ -512,6 +540,7 @@ export default function App() {
               <PhotoEditor 
                 imageSrc={imageSrc} 
                 preset={selectedPreset} 
+                language={language}
                 onSave={handleEditorSave} 
               />
             </motion.div>
@@ -534,15 +563,15 @@ export default function App() {
                   className="flex items-center gap-1 text-xs text-slate-400 hover:text-white transition bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-800"
                 >
                   <ArrowLeft className="w-4 h-4" />
-                  <span>Quay lại chỉnh sửa thêm</span>
+                  <span>{t.backToEditor}</span>
                 </button>
 
                 <button
                   id="start_new_photo_btn"
-                  onClick={handleReset}
+                  onClick={handleResetAll}
                   className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-500 hover:bg-teal-600 text-slate-950 font-bold rounded-lg text-xs transition"
                 >
-                  <span>Tạo ảnh mới</span>
+                  <span>{t.createNew}</span>
                   <ArrowRight className="w-3.5 h-3.5" />
                 </button>
               </div>
@@ -554,7 +583,7 @@ export default function App() {
                 <div className="lg:col-span-4 flex flex-col items-center bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-lg text-center">
                   <div className="flex items-center gap-1.5 text-xs text-teal-400 font-semibold self-start bg-teal-500/10 px-2.5 py-1 rounded-full">
                     <UserCheck className="w-3.5 h-3.5" />
-                    <span>Ảnh Đơn Lẻ Đã Hoàn Thành</span>
+                    <span>{t.downloadSingle}</span>
                   </div>
 
                   {/* Rendered cropped output image */}
@@ -568,8 +597,7 @@ export default function App() {
                   </div>
 
                   <div className="space-y-1">
-                    <h3 className="font-semibold text-slate-100 text-sm">Ảnh hộ chiếu {selectedPreset.widthMm}x{selectedPreset.heightMm} mm</h3>
-                    <p className="text-xs text-slate-400">File PNG chất lượng cao chuẩn in ấn</p>
+                    <h3 className="font-semibold text-slate-100 text-sm">{getPresetName(selectedPreset.id)} ({selectedPreset.widthMm}x{selectedPreset.heightMm} mm)</h3>
                   </div>
 
                   {/* Action download single image */}
@@ -580,13 +608,13 @@ export default function App() {
                     className="w-full py-3 bg-slate-800 hover:bg-slate-700 active:scale-95 text-teal-400 hover:text-teal-300 font-bold rounded-xl text-xs transition flex items-center justify-center gap-2 border border-slate-700"
                   >
                     <Download className="w-4 h-4" />
-                    <span>Tải ảnh đơn lẻ chất lượng cao</span>
+                    <span>{t.downloadSingle}</span>
                   </a>
                 </div>
 
                 {/* Printable Collage Generator Panel */}
                 <div className="lg:col-span-8">
-                  <PrintingGrid photoSrc={croppedPhoto} preset={selectedPreset} />
+                  <PrintingGrid photoSrc={croppedPhoto} preset={selectedPreset} language={language} />
                 </div>
 
               </div>

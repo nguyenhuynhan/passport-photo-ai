@@ -6,13 +6,16 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Download, Grid, RefreshCw, Printer, FileText } from 'lucide-react';
 import { PhotoPreset, PassportStandard } from '../types';
+import { Language, TRANSLATIONS } from '../locales/translations';
 
 interface PrintingGridProps {
   photoSrc: string; // The base64 output of the cropped photo
   preset: PhotoPreset;
+  language?: Language;
 }
 
-export default function PrintingGrid({ photoSrc, preset }: PrintingGridProps) {
+export default function PrintingGrid({ photoSrc, preset, language = 'vi' }: PrintingGridProps) {
+  const t = TRANSLATIONS[language];
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [paperSize, setPaperSize] = useState<'10x15' | 'A4'>('10x15');
   const [photoCount, setPhotoCount] = useState<number>(4);
