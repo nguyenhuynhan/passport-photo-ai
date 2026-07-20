@@ -231,30 +231,30 @@ export default function App() {
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans antialiased flex flex-col selection:bg-teal-500/30 selection:text-teal-200">
       
       {/* Top Header Navigation bar */}
-      <header className="border-b border-slate-900 bg-slate-950/80 backdrop-blur-md sticky top-0 z-50 px-6 py-4">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+      <header className="border-b border-slate-900 bg-slate-950/80 backdrop-blur-md sticky top-0 z-50 px-3 sm:px-6 py-2.5 sm:py-4">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-2 sm:gap-4">
           
           {/* Logo & Title */}
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 bg-gradient-to-tr from-teal-500 to-emerald-400 rounded-xl flex items-center justify-center shadow-lg shadow-teal-500/10">
-              <Camera className="w-5 h-5 text-slate-950 stroke-[2.5]" />
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <div className="h-9 w-9 sm:h-10 sm:w-10 bg-gradient-to-tr from-teal-500 to-emerald-400 rounded-xl flex items-center justify-center shadow-lg shadow-teal-500/10 shrink-0">
+              <Camera className="w-4 h-4 sm:w-5 sm:h-5 text-slate-950 stroke-[2.5]" />
             </div>
-            <div>
-              <h1 className="font-display font-bold text-lg md:text-xl text-slate-100 tracking-tight flex items-center gap-2">
-                {t.appTitle}
-                <span className="text-[10px] bg-teal-500/15 text-teal-400 border border-teal-500/20 px-1.5 py-0.5 rounded-full font-mono font-medium uppercase tracking-wider animate-pulse">
+            <div className="min-w-0">
+              <h1 className="font-display font-bold text-sm sm:text-lg md:text-xl text-slate-100 tracking-tight flex items-center gap-1.5 leading-snug">
+                <span className="truncate">{t.appTitle}</span>
+                <span className="text-[9px] sm:text-[10px] bg-teal-500/15 text-teal-400 border border-teal-500/20 px-1.5 py-0.5 rounded-full font-mono font-medium uppercase tracking-wider shrink-0">
                   {t.localAiBadge}
                 </span>
               </h1>
-              <p className="text-xs text-slate-400">{t.appSubtitle}</p>
+              <p className="text-xs text-slate-400 hidden sm:block leading-normal">{t.appSubtitle}</p>
             </div>
           </div>
 
           {/* Top Info Icons & Language Selector */}
-          <div className="flex items-center gap-4 text-xs text-slate-400 font-medium">
+          <div className="flex items-center gap-2 sm:gap-4 text-xs text-slate-400 font-medium shrink-0">
             <LanguageSelector currentLang={language} onLanguageChange={handleLanguageChange} />
 
-            <div className="hidden md:flex items-center gap-1.5 bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-800">
+            <div className="hidden lg:flex items-center gap-1.5 bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-800">
               <ShieldCheck className="w-4 h-4 text-emerald-400" />
               <span>{t.privacyBadge}</span>
             </div>
