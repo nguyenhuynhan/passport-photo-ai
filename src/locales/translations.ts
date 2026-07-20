@@ -56,6 +56,11 @@ export interface Translations {
   chin: string;
   toggleGuides: string;
   resetTransform: string;
+  autoAlignBtn: string;
+  aiProcessingTitle: string;
+  aiProcessingStep1: string;
+  aiProcessingStep2: string;
+  aiProcessingStep3: string;
   nationalStandardLabel: string;
   removeBgToggle: string;
   bgColorLabel: string;
@@ -169,6 +174,11 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     chin: 'Cằm (Chin)',
     toggleGuides: 'Đường hướng dẫn',
     resetTransform: 'Đặt lại trục',
+    autoAlignBtn: 'Tự động Căn chỉnh AI',
+    aiProcessingTitle: 'AI Đang Xử Lý Cục Bộ...',
+    aiProcessingStep1: 'Phân tích khuôn mặt & trục mắt...',
+    aiProcessingStep2: 'Tách phông nền chân dung bằng AI...',
+    aiProcessingStep3: 'Căn chỉnh tỷ lệ khung hình chuẩn hộ chiếu...',
     nationalStandardLabel: 'Tiêu chuẩn quốc gia:',
     removeBgToggle: 'Tách nền phía sau bằng AI',
     bgColorLabel: 'Màu phông nền thay thế:',
@@ -274,7 +284,12 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     eyeLine: 'Eye Line',
     chin: 'Chin',
     toggleGuides: 'Toggle Guidelines',
-    resetTransform: 'Reset Alignment',
+    resetTransform: 'Reset Adjustments',
+    autoAlignBtn: 'Auto AI Align',
+    aiProcessingTitle: 'AI Processing Locally...',
+    aiProcessingStep1: 'Analyzing face & eye line...',
+    aiProcessingStep2: 'Removing portrait background...',
+    aiProcessingStep3: 'Aligning passport frame scale...',
     nationalStandardLabel: 'National Standard:',
     removeBgToggle: 'AI Background Removal',
     bgColorLabel: 'Replacement Background Color:',
@@ -380,7 +395,12 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     eyeLine: '眼睛水平线',
     chin: '下巴线',
     toggleGuides: '辅助线开关',
-    resetTransform: '重置对齐',
+    resetTransform: '重置调整',
+    autoAlignBtn: 'AI 自动对齐',
+    aiProcessingTitle: 'AI 正在本地处理...',
+    aiProcessingStep1: '正在分析人脸与眼线...',
+    aiProcessingStep2: '正在分割人像背景...',
+    aiProcessingStep3: '正在调整护照标准比例...',
     nationalStandardLabel: '国家/地区标准：',
     removeBgToggle: 'AI 智能背景替换',
     bgColorLabel: '替换背景颜色：',

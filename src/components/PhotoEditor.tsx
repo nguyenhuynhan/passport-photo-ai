@@ -97,10 +97,11 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onSave 
   }, [imageSrc]);
 
   // Run face detection and segmentation
-  // Run face detection and segmentation
   const runAIProcessing = async (img: HTMLImageElement) => {
     setIsProcessing(true);
-    setAiLog('AI đang phân tích khuôn mặt & tách nền...');
+    setAiLog(t.aiProcessingStep1);
+    // Yield to browser UI thread so loading spinner renders immediately
+    await new Promise((r) => setTimeout(r, 60));
 
     try {
       // 1. Run Segmentation first
@@ -109,6 +110,7 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onSave 
       let mHeight = 0;
 
       try {
+        setAiLog(t.aiProcessingStep2);
         const segmentResult = await segmentSelfie(img);
         if (segmentResult && segmentResult.confidenceMasks && segmentResult.confidenceMasks.length > 0) {
           const mask = segmentResult.confidenceMasks[0];
@@ -127,6 +129,7 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onSave 
       let faceFound = false;
 
       try {
+        setAiLog(t.aiProcessingStep3);
         const detectRes = await detectFace(img);
         const { faceResult, sourceWidth, sourceHeight } = detectRes;
 
@@ -137,7 +140,7 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onSave 
           if (box && sourceWidth > 0 && sourceHeight > 0) {
             faceFound = true;
             setFaceDetected(true);
-            setAiLog('Đã phát hiện khuôn mặt! Đang căn chỉnh trục mắt và tỉ lệ chuẩn...');
+            setAiLog(t.aiFaceFound);
 
             let rotationAngle = 0;
             if (detection.keypoints && detection.keypoints.length >= 2) {
@@ -233,7 +236,7 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onSave 
         if (count > 50 && minY < maxY) {
           faceFound = true;
           setFaceDetected(true);
-          setAiLog('Đã tự động định vị khuôn mặt từ nhận diện chân dung!');
+          setAiLog(t.aiSmartFallback);
 
           const normTopHeadY = minY / mHeight;
           const normFaceCenterX = ((minX + maxX) / 2) / mWidth;
@@ -265,13 +268,20 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onSave 
 
       if (!faceFound) {
         setFaceDetected(false);
-        setAiLog('Không tìm thấy khuôn mặt rõ ràng. Chuyển sang căn chỉnh thủ công.');
+        setAiLog(t.aiNoFace);
       }
     } catch (err) {
       console.error('Lỗi khi chạy mô hình AI cục bộ:', err);
-      setAiLog('AI cục bộ không hỗ trợ trên thiết bị này. Đã sẵn sàng chỉnh sửa thủ công.');
     } finally {
       setIsProcessing(false);
+    }
+  };
+
+  // Re-run AI Auto Align calculation
+  const triggerAutoAlign = () => {
+    const originalImg = originalImageRef.current;
+    if (originalImg) {
+      runAIProcessing(originalImg);
     }
   };
 
@@ -442,13 +452,16 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onSave 
           ref={containerRef}
           className="relative rounded-2xl overflow-hidden shadow-2xl border border-slate-800 bg-slate-950 flex items-center justify-center p-6 w-full max-w-[380px] md:max-w-[420px]"
         >
-          {/* AI Busy indicator */}
+          {/* AI Busy indicator with glassmorphism overlay */}
           {isProcessing && (
-            <div className="absolute inset-0 bg-slate-900/90 flex flex-col items-center justify-center text-center gap-3 p-6 z-10">
-              <RefreshCw className="w-8 h-8 animate-spin text-teal-400" />
-              <div className="space-y-1">
-                <h4 className="font-semibold text-slate-100 text-sm">AI Đang Làm Việc Cục Bộ...</h4>
-                <p className="text-[11px] text-slate-400 font-mono max-w-xs">{aiLog}</p>
+            <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center text-center gap-4 p-6 z-20 transition-all duration-300">
+              <div className="relative flex items-center justify-center">
+                <div className="w-16 h-16 rounded-full border-4 border-teal-500/20 border-t-teal-400 animate-spin" />
+                <Sparkles className="w-6 h-6 text-teal-400 absolute animate-pulse" />
+              </div>
+              <div className="space-y-1.5">
+                <h4 className="font-bold text-slate-100 text-sm tracking-tight">{t.aiProcessingTitle}</h4>
+                <p className="text-xs text-teal-400 font-medium animate-pulse max-w-xs">{aiLog}</p>
               </div>
             </div>
           )}
@@ -515,7 +528,17 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onSave 
         </div>
 
         {/* Floating actions under preview */}
-        <div className="flex gap-3 w-full max-w-[300px] justify-center">
+        <div className="flex flex-wrap gap-2 w-full max-w-[360px] justify-center">
+          <button
+            id="trigger_auto_align_btn"
+            onClick={triggerAutoAlign}
+            disabled={isProcessing}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-500/20 text-teal-300 hover:bg-teal-500/30 border border-teal-500/30 rounded-lg text-xs font-semibold transition active:scale-95 disabled:opacity-50"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-teal-400" />
+            <span>{t.autoAlignBtn}</span>
+          </button>
+
           <button
             id="toggle_guide_btn"
             onClick={() => setShowGuide(!showGuide)}
