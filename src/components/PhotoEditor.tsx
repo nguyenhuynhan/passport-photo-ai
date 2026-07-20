@@ -72,102 +72,150 @@ export default function PhotoEditor({ imageSrc, preset, onSave }: PhotoEditorPro
   }, [imageSrc]);
 
   // Run face detection and segmentation
+  // Run face detection and segmentation
   const runAIProcessing = async (img: HTMLImageElement) => {
     setIsProcessing(true);
-    setAiLog('AI đang phân tích khuôn mặt...');
+    setAiLog('AI đang phân tích khuôn mặt & tách nền...');
 
     try {
-      // 1. Face Detection
-      const faceResult = await detectFace(img);
-      let calculatedAdjustments = { ...DEFAULT_ADJUSTMENTS };
+      // 1. Run Segmentation first
+      let maskData: Float32Array | null = null;
+      let mWidth = 0;
+      let mHeight = 0;
 
-      if (faceResult && faceResult.detections && faceResult.detections.length > 0) {
-        setFaceDetected(true);
-        setAiLog('Đã phát hiện khuôn mặt! Đang căn chỉnh trục mắt và tỉ lệ chuẩn...');
+      try {
+        const segmentResult = await segmentSelfie(img);
+        if (segmentResult && segmentResult.confidenceMasks && segmentResult.confidenceMasks.length > 0) {
+          const mask = segmentResult.confidenceMasks[0];
+          maskData = mask.getAsFloat32Array();
+          mWidth = mask.width;
+          mHeight = mask.height;
+          setSegmentationMask(maskData);
+          setMaskWidth(mWidth);
+          setMaskHeight(mHeight);
+        }
+      } catch (segErr) {
+        console.warn('Lỗi phân tách nền:', segErr);
+      }
 
-        const detection = faceResult.detections[0];
-        const box = detection.boundingBox;
+      // 2. Run Face Detection
+      let faceFound = false;
 
-        if (box) {
-          // Calculate auto rotation using eyes
-          let rotationAngle = 0;
-          if (detection.keypoints && detection.keypoints.length >= 2) {
-            const rightEye = detection.keypoints[0]; // normalized
-            const leftEye = detection.keypoints[1];  // normalized
-            
-            // Map to pixel coordinates
-            const rightEyeX = rightEye.x * img.width;
-            const rightEyeY = rightEye.y * img.height;
-            const leftEyeX = leftEye.x * img.width;
-            const leftEyeY = leftEye.y * img.height;
+      try {
+        const faceResult = await detectFace(img);
+        if (faceResult && faceResult.detections && faceResult.detections.length > 0) {
+          const detection = faceResult.detections[0];
+          const box = detection.boundingBox;
 
-            const dx = leftEyeX - rightEyeX;
-            const dy = leftEyeY - rightEyeY;
-            // Angle to tilt the image so the eyes are horizontal
-            rotationAngle = -Math.atan2(dy, dx) * (180 / Math.PI);
+          if (box) {
+            faceFound = true;
+            setFaceDetected(true);
+            setAiLog('Đã phát hiện khuôn mặt! Đang căn chỉnh trục mắt và tỉ lệ chuẩn...');
+
+            let rotationAngle = 0;
+            if (detection.keypoints && detection.keypoints.length >= 2) {
+              const rightEye = detection.keypoints[0];
+              const leftEye = detection.keypoints[1];
+              const rightEyeX = rightEye.x * img.width;
+              const rightEyeY = rightEye.y * img.height;
+              const leftEyeX = leftEye.x * img.width;
+              const leftEyeY = leftEye.y * img.height;
+
+              const dx = leftEyeX - rightEyeX;
+              const dy = leftEyeY - rightEyeY;
+              rotationAngle = -Math.atan2(dy, dx) * (180 / Math.PI);
+            }
+
+            const estimatedHeadHeight = box.height * 1.35;
+            const targetFaceHeightPercent = (preset.faceHeightMinPercent + preset.faceHeightMaxPercent) / 2;
+            const standardCanvasHeight = 600;
+            const standardCanvasWidth = standardCanvasHeight * preset.aspectRatio;
+
+            const desiredHeadHeightPxOnCanvas = standardCanvasHeight * (targetFaceHeightPercent / 100);
+            const targetScale = (desiredHeadHeightPxOnCanvas / standardCanvasHeight) * (img.height / estimatedHeadHeight);
+
+            const faceCenterX = box.originX + box.width / 2;
+            const faceCenterY = box.originY + box.height / 2;
+            const cropCenterY = faceCenterY - box.height * 0.15;
+
+            const currentCanvasCenterX = img.width / 2;
+            const currentCanvasCenterY = img.height / 2;
+
+            const targetOffsetX = (currentCanvasCenterX - faceCenterX) * (standardCanvasWidth / img.width);
+            const targetOffsetY = (currentCanvasCenterY - cropCenterY) * (standardCanvasHeight / img.height);
+
+            setAdjustments({
+              ...DEFAULT_ADJUSTMENTS,
+              zoom: Number(targetScale.toFixed(2)),
+              rotation: Number(rotationAngle.toFixed(1)),
+              offsetX: Number(targetOffsetX.toFixed(0)),
+              offsetY: Number(targetOffsetY.toFixed(0)),
+            });
           }
+        }
+      } catch (faceErr) {
+        console.warn('Lỗi phát hiện khuôn mặt:', faceErr);
+      }
 
-          // Total head height is roughly 1.35x face bounding box height
-          const estimatedHeadHeight = box.height * 1.35;
+      // 3. Smart Fallback using Segmentation Mask if Face Detection was empty
+      if (!faceFound && maskData && mWidth > 0 && mHeight > 0) {
+        let minY = mHeight, maxY = 0, minX = mWidth, maxX = 0;
+        let count = 0;
+
+        for (let y = 0; y < mHeight; y++) {
+          for (let x = 0; x < mWidth; x++) {
+            const confidence = maskData[y * mWidth + x];
+            if (confidence > 0.35) {
+              if (y < minY) minY = y;
+              if (y > maxY) maxY = y;
+              if (x < minX) minX = x;
+              if (x > maxX) maxX = x;
+              count++;
+            }
+          }
+        }
+
+        if (count > 50 && minY < maxY) {
+          faceFound = true;
+          setFaceDetected(true);
+          setAiLog('Đã tự động định vị khuôn mặt từ nhận diện chân dung!');
+
+          const topHeadYImg = (minY / mHeight) * img.height;
+          const bodyWidthImg = ((maxX - minX) / mWidth) * img.width;
+          const estimatedHeadHeightImg = bodyWidthImg * 0.75;
+          const faceCenterXImg = (((minX + maxX) / 2) / mWidth) * img.width;
+          const faceCenterYImg = topHeadYImg + estimatedHeadHeightImg * 0.5;
+
           const targetFaceHeightPercent = (preset.faceHeightMinPercent + preset.faceHeightMaxPercent) / 2;
-
-          // Target scale: how much to zoom so that estimatedHeadHeight becomes targetFaceHeightPercent of the canvas height
-          // For visualization, we output on a 600px height standard canvas (maintaining target aspect ratio)
           const standardCanvasHeight = 600;
           const standardCanvasWidth = standardCanvasHeight * preset.aspectRatio;
 
           const desiredHeadHeightPxOnCanvas = standardCanvasHeight * (targetFaceHeightPercent / 100);
-          
-          // Current estimated head height drawn at scale 1.0 would match the proportion in original image.
-          // To make estimatedHeadHeight occupy desiredHeadHeightPxOnCanvas:
-          // scale * estimatedHeadHeight = desiredHeadHeightPxOnCanvas / standardCanvasHeight * imgHeight
-          // scale = (desiredHeadHeightPxOnCanvas / standardCanvasHeight) * (imgHeight / estimatedHeadHeight)
-          const targetScale = (desiredHeadHeightPxOnCanvas / standardCanvasHeight) * (img.height / estimatedHeadHeight);
+          const targetScale = (desiredHeadHeightPxOnCanvas / standardCanvasHeight) * (img.height / estimatedHeadHeightImg);
 
-          // Center crop on face
-          const faceCenterX = box.originX + box.width / 2;
-          const faceCenterY = box.originY + box.height / 2;
-
-          // Adjust slightly upwards (head contains hair)
-          const cropCenterY = faceCenterY - box.height * 0.15;
-
-          // Slide offsets relative to center
-          // The center of the canvas should map to the face center.
           const currentCanvasCenterX = img.width / 2;
           const currentCanvasCenterY = img.height / 2;
 
-          const targetOffsetX = (currentCanvasCenterX - faceCenterX) * (standardCanvasWidth / img.width);
-          const targetOffsetY = (currentCanvasCenterY - cropCenterY) * (standardCanvasHeight / img.height);
+          const targetOffsetX = (currentCanvasCenterX - faceCenterXImg) * (standardCanvasWidth / img.width);
+          const targetOffsetY = (currentCanvasCenterY - faceCenterYImg) * (standardCanvasHeight / img.height);
 
-          calculatedAdjustments = {
+          setAdjustments({
             ...DEFAULT_ADJUSTMENTS,
-            zoom: Number(targetScale.toFixed(2)),
-            rotation: Number(rotationAngle.toFixed(1)),
+            zoom: Number(Math.max(0.5, Math.min(3, targetScale)).toFixed(2)),
+            rotation: 0,
             offsetX: Number(targetOffsetX.toFixed(0)),
             offsetY: Number(targetOffsetY.toFixed(0)),
-          };
-          setAdjustments(calculatedAdjustments);
+          });
         }
-      } else {
+      }
+
+      if (!faceFound) {
         setFaceDetected(false);
         setAiLog('Không tìm thấy khuôn mặt rõ ràng. Chuyển sang căn chỉnh thủ công.');
       }
-
-      // 2. Selfie Segmentation for Background Removal
-      setAiLog('Đang phân tách nền phía sau...');
-      const segmentResult = await segmentSelfie(img);
-      if (segmentResult && segmentResult.confidenceMasks && segmentResult.confidenceMasks.length > 0) {
-        const mask = segmentResult.confidenceMasks[0];
-        setSegmentationMask(mask.getAsFloat32Array());
-        setMaskWidth(mask.width);
-        setMaskHeight(mask.height);
-        setAiLog('Xử lý AI thành công!');
-      } else {
-        setAiLog('Không thể phân tách nền. Đã sẵn sàng chỉnh sửa.');
-      }
     } catch (err) {
       console.error('Lỗi khi chạy mô hình AI cục bộ:', err);
-      setAiLog('AI cục bộ không hỗ trợ trên thiết bị này hoặc tải mô hình lỗi. Đã sẵn sàng chỉnh sửa thủ công.');
+      setAiLog('AI cục bộ không hỗ trợ trên thiết bị này. Đã sẵn sàng chỉnh sửa thủ công.');
     } finally {
       setIsProcessing(false);
     }

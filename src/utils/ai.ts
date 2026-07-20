@@ -27,21 +27,21 @@ export async function initModels(onProgress?: (status: string) => void): Promise
       try {
         faceDetector = await FaceDetector.createFromOptions(visionTasks, {
           baseOptions: {
-            modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite',
+            modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float32/1/blaze_face_short_range.tflite',
             delegate: 'GPU',
           },
           runningMode: 'IMAGE',
-          minDetectionConfidence: 0.2,
+          minDetectionConfidence: 0.15,
         });
       } catch (gpuError) {
         console.warn('Không khởi tạo được GPU delegate cho FaceDetector, chuyển sang CPU:', gpuError);
         faceDetector = await FaceDetector.createFromOptions(visionTasks, {
           baseOptions: {
-            modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite',
+            modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float32/1/blaze_face_short_range.tflite',
             delegate: 'CPU',
           },
           runningMode: 'IMAGE',
-          minDetectionConfidence: 0.2,
+          minDetectionConfidence: 0.15,
         });
       }
 
@@ -49,7 +49,7 @@ export async function initModels(onProgress?: (status: string) => void): Promise
       try {
         imageSegmenter = await ImageSegmenter.createFromOptions(visionTasks, {
           baseOptions: {
-            modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float16/1/selfie_segmenter.tflite',
+            modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float32/1/selfie_segmenter.tflite',
             delegate: 'GPU',
           },
           runningMode: 'IMAGE',
@@ -60,7 +60,7 @@ export async function initModels(onProgress?: (status: string) => void): Promise
         console.warn('Không khởi tạo được GPU delegate cho ImageSegmenter, chuyển sang CPU:', gpuError);
         imageSegmenter = await ImageSegmenter.createFromOptions(visionTasks, {
           baseOptions: {
-            modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float16/1/selfie_segmenter.tflite',
+            modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float32/1/selfie_segmenter.tflite',
             delegate: 'CPU',
           },
           runningMode: 'IMAGE',
@@ -87,11 +87,19 @@ export function isLoaded(): boolean {
 function ensureCanvasSource(imageElement: HTMLImageElement | HTMLVideoElement | HTMLCanvasElement): HTMLCanvasElement | HTMLVideoElement | HTMLCanvasElement {
   if (imageElement instanceof HTMLImageElement) {
     const canvas = document.createElement('canvas');
-    canvas.width = imageElement.naturalWidth || imageElement.width;
-    canvas.height = imageElement.naturalHeight || imageElement.height;
+    const width = imageElement.naturalWidth || imageElement.width || 600;
+    const height = imageElement.naturalHeight || imageElement.height || 600;
+    
+    // Scale down if image is huge (> 1280px) to make face detection much faster and more accurate for BlazeFace
+    const maxDim = Math.max(width, height);
+    const scale = maxDim > 1280 ? 1280 / maxDim : 1;
+    
+    canvas.width = Math.round(width * scale);
+    canvas.height = Math.round(height * scale);
+    
     const ctx = canvas.getContext('2d');
     if (ctx) {
-      ctx.drawImage(imageElement, 0, 0);
+      ctx.drawImage(imageElement, 0, 0, canvas.width, canvas.height);
       return canvas;
     }
   }
@@ -119,4 +127,5 @@ export async function segmentSelfie(imageElement: HTMLImageElement | HTMLVideoEl
   const source = ensureCanvasSource(imageElement);
   return imageSegmenter.segment(source);
 }
+
 
