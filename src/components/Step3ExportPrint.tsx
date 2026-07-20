@@ -82,23 +82,41 @@ export default function Step3ExportPrint({
             />
           </div>
 
-          <div className="space-y-1">
+          <div className="space-y-2 text-center w-full">
             <h3 className="font-semibold text-slate-100 text-sm">
               {getPresetName(preset.id)} ({preset.widthMm}x{preset.heightMm} mm)
             </h3>
-            <p className="text-xs text-slate-400">{t.singlePhotoSpecs}</p>
+            <p className="text-xs text-teal-400 font-medium font-mono bg-teal-500/10 py-1 px-2.5 rounded-lg border border-teal-500/20">
+              1200 x 1800 px (300 DPI) • {preset.id === PassportStandard.VIETNAM_4x6 ? 'Đạt chuẩn Bộ Công An' : 'High Resolution'}
+            </p>
+            <p className="text-[11px] text-slate-400 leading-relaxed">{t.singlePhotoSpecs}</p>
           </div>
 
           {/* Action download single image */}
           <a
             id="download_single_photo_btn"
             href={croppedPhoto}
-            download={`Passport_Photo_${preset.widthMm}x${preset.heightMm}.jpg`}
-            className="w-full py-3 bg-slate-800 hover:bg-slate-700 active:scale-95 text-teal-400 hover:text-teal-300 font-bold rounded-xl text-xs transition flex items-center justify-center gap-2 border border-slate-700"
+            download={`Anh_Ho_Chieu_${preset.widthMm}x${preset.heightMm}_BoCongAn.jpg`}
+            className="w-full py-3 bg-teal-500 hover:bg-teal-600 active:scale-95 text-slate-950 font-bold rounded-xl text-xs transition flex items-center justify-center gap-2 shadow-lg shadow-teal-500/10 cursor-pointer"
           >
             <Download className="w-4 h-4" />
             <span>{t.downloadSingleBtn}</span>
           </a>
+
+          {/* Special Portal Tip */}
+          {preset.id === PassportStandard.VIETNAM_4x6 && (
+            <div className="bg-slate-950/80 border border-teal-500/30 rounded-xl p-3 text-left space-y-1 text-[11px]">
+              <p className="font-bold text-teal-300 flex items-center gap-1">
+                <UserCheck className="w-3.5 h-3.5" />
+                Mẹo nộp Cổng dịch vụ công không bị lỗi:
+              </p>
+              <ul className="text-slate-400 list-disc list-inside space-y-1">
+                <li>Tải trực tiếp file <strong className="text-slate-200">.JPG</strong> này về máy.</li>
+                <li><strong className="text-amber-300">Không gửi qua Zalo / Messenger</strong> (vì các app này nén làm giảm pixel).</li>
+                <li>Nộp file trực tiếp lên hệ thống Bộ Công An.</li>
+              </ul>
+            </div>
+          )}
         </div>
 
         {/* Printable Collage Generator Panel */}

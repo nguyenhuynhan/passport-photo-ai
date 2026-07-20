@@ -255,9 +255,9 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
             // Step C: Calculate Full Head Height
             const normFullHeadHeight = Math.max(0.18, normChinY - normTopHeadY);
 
-            // Output Dimensions
-            const standardCanvasHeight = 600;
-            const standardCanvasWidth = standardCanvasHeight * preset.aspectRatio;
+            // Output Dimensions (High Resolution 300-600 DPI for Government Portals)
+            const standardCanvasHeight = 1800;
+            const standardCanvasWidth = Math.round(standardCanvasHeight * preset.aspectRatio);
 
             // Target head height on canvas based on overlay guidelines
             const targetHeadHeightPercent = (preset.overlaySpecs.chinPercent - preset.overlaySpecs.headTopPercent) / 100;
@@ -285,8 +285,8 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
             const rawOffsetY = targetHeadTopPxOnCanvas - (standardCanvasHeight / 2) - (normTopHeadY - 0.5) * img.height * finalScale;
 
             // Clamp offsets safely so image doesn't get pushed off canvas
-            const targetOffsetX = Math.max(-180, Math.min(180, isFinite(rawOffsetX) ? rawOffsetX : 0));
-            const targetOffsetY = Math.max(-180, Math.min(180, isFinite(rawOffsetY) ? rawOffsetY : 0));
+            const targetOffsetX = Math.max(-500, Math.min(500, isFinite(rawOffsetX) ? rawOffsetX : 0));
+            const targetOffsetY = Math.max(-500, Math.min(500, isFinite(rawOffsetY) ? rawOffsetY : 0));
 
             const computedAdjustments: ImageAdjustments = {
               ...DEFAULT_ADJUSTMENTS,
@@ -332,8 +332,8 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
 
           const normFullHeadHeight = Math.min(0.35, normPersonHeight * 0.35);
 
-          const standardCanvasHeight = 600;
-          const standardCanvasWidth = standardCanvasHeight * preset.aspectRatio;
+          const standardCanvasHeight = 1800;
+          const standardCanvasWidth = Math.round(standardCanvasHeight * preset.aspectRatio);
 
           const baseScale = Math.min(standardCanvasWidth / img.width, standardCanvasHeight / img.height);
           const targetHeadHeightPercent = (preset.overlaySpecs.chinPercent - preset.overlaySpecs.headTopPercent) / 100;
@@ -349,8 +349,8 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
           const rawOffsetX = (0.5 - normFaceCenterX) * img.width * finalScale;
           const rawOffsetY = targetHeadTopPxOnCanvas - (standardCanvasHeight / 2) - (normTopHeadY - 0.5) * img.height * finalScale;
 
-          const targetOffsetX = Math.max(-180, Math.min(180, isFinite(rawOffsetX) ? rawOffsetX : 0));
-          const targetOffsetY = Math.max(-180, Math.min(180, isFinite(rawOffsetY) ? rawOffsetY : 0));
+          const targetOffsetX = Math.max(-500, Math.min(500, isFinite(rawOffsetX) ? rawOffsetX : 0));
+          const targetOffsetY = Math.max(-500, Math.min(500, isFinite(rawOffsetY) ? rawOffsetY : 0));
 
           const computedAdjustments: ImageAdjustments = {
             ...DEFAULT_ADJUSTMENTS,
@@ -475,8 +475,9 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
     const ctx = displayCanvas.getContext('2d');
     if (!ctx) return;
 
-    // Fixed standard output dimensions
-    const outputHeight = 600;
+    // High resolution output dimensions (1200x1800px for 4x6 at 300-600 DPI)
+    // Ensures width >= 480px required by Vietnam Ministry of Public Security portal
+    const outputHeight = 1800;
     const outputWidth = Math.round(outputHeight * preset.aspectRatio);
 
     displayCanvas.width = outputWidth;

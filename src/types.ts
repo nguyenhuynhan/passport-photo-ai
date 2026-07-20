@@ -42,7 +42,7 @@ export const PHOTO_PRESETS: Record<PassportStandard, PhotoPreset> = {
     faceHeightMinPercent: 70,
     faceHeightMaxPercent: 80,
     defaultBgColor: '#FFFFFF',
-    description: 'Nền trắng. Đầu và vai thẳng. Đầu chiếm khoảng 70-80% chiều cao ảnh. Khoảng cách từ đỉnh đầu đến viền trên ảnh khoảng 2-4mm.',
+    description: 'Chuẩn Cổng dịch vụ công Bộ Công An: Nền trắng tinh. Đầu & vai thẳng, lộ rõ 2 vành tai & trán, KHÔNG đeo kính (kể cả kính cận). Mặt chiếm ~75% chiều cao ảnh. Xuất độ phân giải 1200x1800px (300 DPI).',
     overlaySpecs: {
       headTopPercent: 12, // approx 2-4mm/60mm from top (3-6%) - let's make it 10-15%
       chinPercent: 85,    // chin at 85% leaves ~70-75% for face
