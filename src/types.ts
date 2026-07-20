@@ -42,11 +42,11 @@ export const PHOTO_PRESETS: Record<PassportStandard, PhotoPreset> = {
     faceHeightMinPercent: 70,
     faceHeightMaxPercent: 80,
     defaultBgColor: '#FFFFFF',
-    description: 'Chuẩn Cổng dịch vụ công Bộ Công An: Nền trắng tinh. Đầu & vai thẳng, lộ rõ 2 vành tai & trán, KHÔNG đeo kính (kể cả kính cận). Mặt chiếm ~75% chiều cao ảnh. Xuất độ phân giải 1200x1800px (300 DPI).',
+    description: 'Chuẩn Cổng dịch vụ công Bộ Công An: Nền trắng tinh. Đầu & vai thẳng, lộ rõ 2 vành tai & trán. Chiều cao đầu (từ cằm đến đỉnh đầu/tóc) từ 32mm-36mm (khoảng 53-60% chiều cao 60mm). Xuất độ phân giải 1200x1800px (300 DPI).',
     overlaySpecs: {
-      headTopPercent: 12, // approx 2-4mm/60mm from top (3-6%) - let's make it 10-15%
-      chinPercent: 85,    // chin at 85% leaves ~70-75% for face
-      eyeLinePercent: 40,
+      headTopPercent: 8,
+      chinPercent: 66,
+      eyeLinePercent: 38,
     }
   },
   [PassportStandard.VIETNAM_3x4]: {
@@ -61,9 +61,9 @@ export const PHOTO_PRESETS: Record<PassportStandard, PhotoPreset> = {
     defaultBgColor: '#FFFFFF',
     description: 'Nền trắng hoặc nền xanh dương. Thường dùng cho chứng chỉ, bằng lái xe, thẻ học sinh/sinh viên.',
     overlaySpecs: {
-      headTopPercent: 15,
-      chinPercent: 88,
-      eyeLinePercent: 42,
+      headTopPercent: 10,
+      chinPercent: 74,
+      eyeLinePercent: 39,
     }
   },
   [PassportStandard.CHINA_VISA]: {
@@ -78,9 +78,9 @@ export const PHOTO_PRESETS: Record<PassportStandard, PhotoPreset> = {
     defaultBgColor: '#FFFFFF',
     description: 'Nền trắng tinh. Mặt hướng thẳng, đầu chiếm từ 28mm-33mm chiều cao ảnh (khoảng 60-70%). Chiều rộng đầu 15mm-22mm.',
     overlaySpecs: {
-      headTopPercent: 12,
-      chinPercent: 80,
-      eyeLinePercent: 42,
+      headTopPercent: 9,
+      chinPercent: 71,
+      eyeLinePercent: 39,
     }
   },
   [PassportStandard.US_VISA]: {
@@ -93,11 +93,11 @@ export const PHOTO_PRESETS: Record<PassportStandard, PhotoPreset> = {
     faceHeightMinPercent: 50,
     faceHeightMaxPercent: 69,
     defaultBgColor: '#FFFFFF',
-    description: 'Nền trắng tinh. Đầu phải chiếm từ 50% đến 69% tổng chiều cao của ảnh. Mắt phải cách cạnh dưới của ảnh từ 56% đến 69% (khoảng 40-44% từ đỉnh).',
+    description: 'Nền trắng tinh. Đầu phải chiếm từ 50% đến 69% tổng chiều cao của ảnh. Mắt phải cách cạnh dưới của ảnh từ 56% đến 69%.',
     overlaySpecs: {
-      headTopPercent: 15,
-      chinPercent: 75, // 15% to 75% gives 60% face height, centered perfectly
-      eyeLinePercent: 42, // 42% from top, which is 58% from bottom
+      headTopPercent: 10,
+      chinPercent: 68,
+      eyeLinePercent: 39,
     }
   },
   [PassportStandard.SCHENGEN]: {
@@ -112,9 +112,9 @@ export const PHOTO_PRESETS: Record<PassportStandard, PhotoPreset> = {
     defaultBgColor: '#F0F0F0',
     description: 'Nền xám nhạt hoặc trắng nhạt. Mặt phải rõ nét, đầu chiếm 70% đến 80% (từ 32mm đến 36mm tính từ cằm đến đỉnh đầu, không kể tóc phồng).',
     overlaySpecs: {
-      headTopPercent: 12,
-      chinPercent: 85,
-      eyeLinePercent: 40,
+      headTopPercent: 8,
+      chinPercent: 78,
+      eyeLinePercent: 38,
     }
   },
   [PassportStandard.CUSTOM]: {
@@ -129,9 +129,9 @@ export const PHOTO_PRESETS: Record<PassportStandard, PhotoPreset> = {
     defaultBgColor: '#FFFFFF',
     description: 'Tự do căn chỉnh tỉ lệ và chiều cao đầu phù hợp với nhu cầu riêng của bạn.',
     overlaySpecs: {
-      headTopPercent: 15,
-      chinPercent: 80,
-      eyeLinePercent: 42,
+      headTopPercent: 10,
+      chinPercent: 70,
+      eyeLinePercent: 39,
     }
   }
 };

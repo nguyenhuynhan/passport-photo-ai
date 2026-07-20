@@ -71,6 +71,80 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
   const [imgHeight, setImgHeight] = useState<number>(0);
   const [loadedImg, setLoadedImg] = useState<HTMLImageElement | null>(null);
 
+  // Interactive canvas dragging & wheel zoom states
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStartRef = useRef<{ x: number; y: number; offsetX: number; offsetY: number }>({ x: 0, y: 0, offsetX: 0, offsetY: 0 });
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    setIsDragging(true);
+    dragStartRef.current = {
+      x: e.clientX,
+      y: e.clientY,
+      offsetX: adjustments.offsetX,
+      offsetY: adjustments.offsetY,
+    };
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging) return;
+    const dx = e.clientX - dragStartRef.current.x;
+    const dy = e.clientY - dragStartRef.current.y;
+    
+    const container = containerRef.current;
+    const containerHeight = container ? container.clientHeight : 400;
+    const scaleRatio = 1800 / containerHeight;
+
+    setAdjustments((prev) => ({
+      ...prev,
+      offsetX: Math.max(-1000, Math.min(1000, Math.round(dragStartRef.current.offsetX + dx * scaleRatio))),
+      offsetY: Math.max(-1000, Math.min(1000, Math.round(dragStartRef.current.offsetY + dy * scaleRatio))),
+    }));
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  const handleWheel = (e: React.WheelEvent) => {
+    const delta = e.deltaY > 0 ? -0.05 : 0.05;
+    setAdjustments((prev) => ({
+      ...prev,
+      zoom: Number(Math.max(0.3, Math.min(3.5, prev.zoom + delta)).toFixed(2)),
+    }));
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 1) {
+      setIsDragging(true);
+      dragStartRef.current = {
+        x: e.touches[0].clientX,
+        y: e.touches[0].clientY,
+        offsetX: adjustments.offsetX,
+        offsetY: adjustments.offsetY,
+      };
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isDragging || e.touches.length !== 1) return;
+    const dx = e.touches[0].clientX - dragStartRef.current.x;
+    const dy = e.touches[0].clientY - dragStartRef.current.y;
+    
+    const container = containerRef.current;
+    const containerHeight = container ? container.clientHeight : 400;
+    const scaleRatio = 1800 / containerHeight;
+
+    setAdjustments((prev) => ({
+      ...prev,
+      offsetX: Math.max(-1000, Math.min(1000, Math.round(dragStartRef.current.offsetX + dx * scaleRatio))),
+      offsetY: Math.max(-1000, Math.min(1000, Math.round(dragStartRef.current.offsetY + dy * scaleRatio))),
+    }));
+  };
+
+  const handleTouchEnd = () => {
+    setIsDragging(false);
+  };
+
   // Helper to emit debounced cropped photo to parent state
   const emitDebouncedCropChange = () => {
     if (cropTimerRef.current) {
@@ -92,6 +166,10 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
   // Load preset defaults when preset changes
   useEffect(() => {
     setBgColor(preset.defaultBgColor);
+    const img = loadedImg || originalImageRef.current;
+    if (img && img.width && img.height) {
+      runAIProcessing(img);
+    }
   }, [preset]);
 
   // Load original image and run AI on mount/change
@@ -175,6 +253,10 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
 
       // 2. Run Face Detection
       let faceFound = false;
+      let normFaceCenterX = 0.5;
+      let normEyeCenterY = 0.40;
+      let normFullHeadHeight = 0.50;
+      let rotationAngle = 0;
 
       try {
         setAiLog(t.aiProcessingStep3);
@@ -187,8 +269,9 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
 
           if (box && sourceWidth > 0 && sourceHeight > 0) {
             faceFound = true;
-            setFaceDetected(true);
-            setAiLog(t.aiFaceFound);
+
+            const getNormX = (kp: { x: number }) => (kp.x > 1.1 ? kp.x / sourceWidth : kp.x);
+            const getNormY = (kp: { y: number }) => (kp.y > 1.1 ? kp.y / sourceHeight : kp.y);
 
             let normRightEyeX = 0, normRightEyeY = 0;
             let normLeftEyeX = 0, normLeftEyeY = 0;
@@ -197,40 +280,50 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
 
             if (detection.keypoints && detection.keypoints.length >= 2) {
               hasKeypoints = true;
-              normRightEyeX = detection.keypoints[0].x;
-              normRightEyeY = detection.keypoints[0].y;
-              normLeftEyeX = detection.keypoints[1].x;
-              normLeftEyeY = detection.keypoints[1].y;
+              normRightEyeX = getNormX(detection.keypoints[0]);
+              normRightEyeY = getNormY(detection.keypoints[0]);
+              normLeftEyeX = getNormX(detection.keypoints[1]);
+              normLeftEyeY = getNormY(detection.keypoints[1]);
 
               if (detection.keypoints.length >= 4) {
-                normMouthY = detection.keypoints[3].y;
+                normMouthY = getNormY(detection.keypoints[3]);
               }
             }
 
-            let rotationAngle = 0;
-            if (hasKeypoints) {
-              const dx = normLeftEyeX - normRightEyeX;
-              const dy = normLeftEyeY - normRightEyeY;
-              const rawAngle = -Math.atan2(dy, dx) * (180 / Math.PI);
+            // Calculate pixel eye distance and rotation angle
+            let eyeDistPx = 0;
+            if (hasKeypoints && normLeftEyeX > normRightEyeX) {
+              const dxPx = (normLeftEyeX - normRightEyeX) * sourceWidth;
+              const dyPx = (normLeftEyeY - normRightEyeY) * sourceHeight;
+              eyeDistPx = Math.hypot(dxPx, dyPx);
+              const rawAngle = -Math.atan2(dyPx, dxPx) * (180 / Math.PI);
               rotationAngle = Math.max(-15, Math.min(15, rawAngle));
+            } else {
+              const boxWidthPx = box.width > 1.1 ? box.width : box.width * sourceWidth;
+              eyeDistPx = boxWidthPx * 0.45;
             }
 
-            const normFaceCenterX = hasKeypoints 
+            const boxNormOriginX = box.originX > 1.1 ? box.originX / sourceWidth : box.originX;
+            const boxNormOriginY = box.originY > 1.1 ? box.originY / sourceHeight : box.originY;
+            const boxNormWidth = box.width > 1.1 ? box.width / sourceWidth : box.width;
+            const boxNormHeight = box.height > 1.1 ? box.height / sourceHeight : box.height;
+
+            normFaceCenterX = hasKeypoints && normLeftEyeX > 0
               ? (normRightEyeX + normLeftEyeX) / 2 
-              : (box.originX + box.width / 2) / sourceWidth;
+              : boxNormOriginX + boxNormWidth / 2;
 
-            const normEyeCenterY = hasKeypoints 
+            normEyeCenterY = hasKeypoints && normRightEyeY > 0
               ? (normRightEyeY + normLeftEyeY) / 2 
-              : (box.originY + box.height * 0.35) / sourceHeight;
+              : boxNormOriginY + boxNormHeight * 0.38;
 
-            const normEyeDistance = hasKeypoints 
-              ? Math.hypot(normLeftEyeX - normRightEyeX, normLeftEyeY - normRightEyeY) 
-              : (box.width / sourceWidth) * 0.5;
+            // Geometric top of head: top of skull is ~1.30 * eyeDistPx above eyes in pixel space
+            const geomTopHeadY = Math.max(0.005, normEyeCenterY - (1.30 * eyeDistPx) / sourceHeight);
 
-            let normTopHeadY = -1;
+            // Find top of head using segmentation mask if available
+            let normTopHeadY = geomTopHeadY;
             if (maskData && mWidth > 0 && mHeight > 0) {
               const scanCenterX = Math.floor(normFaceCenterX * mWidth);
-              const scanHalfWidth = Math.max(3, Math.floor(normEyeDistance * mWidth * 0.9));
+              const scanHalfWidth = Math.max(3, Math.floor((eyeDistPx / sourceWidth) * mWidth * 0.8));
               const startX = Math.max(0, scanCenterX - scanHalfWidth);
               const endX = Math.min(mWidth - 1, scanCenterX + scanHalfWidth);
 
@@ -238,7 +331,10 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
                 let foundRow = false;
                 for (let x = startX; x <= endX; x++) {
                   if (maskData[y * mWidth + x] > 0.35) {
-                    normTopHeadY = y / mHeight;
+                    const candidateTopY = y / mHeight;
+                    if (candidateTopY < normEyeCenterY && (normEyeCenterY - candidateTopY) > 0.4 * (1.30 * eyeDistPx / sourceHeight)) {
+                      normTopHeadY = candidateTopY;
+                    }
                     foundRow = true;
                     break;
                   }
@@ -247,52 +343,17 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
               }
             }
 
-            const geomTopHeadY = Math.max(0.01, normEyeCenterY - 1.35 * normEyeDistance);
-
-            if (normTopHeadY <= 0 || (normEyeCenterY - normTopHeadY) < 0.6 * normEyeDistance || (normEyeCenterY - normTopHeadY) > 2.2 * normEyeDistance) {
-              normTopHeadY = geomTopHeadY;
-            }
-
+            // Chin position calculation
             let normChinY = 0;
-            if (normMouthY > 0) {
-              normChinY = normMouthY + 0.65 * normEyeDistance;
+            if (normMouthY > normEyeCenterY) {
+              normChinY = normMouthY + (0.75 * eyeDistPx) / sourceHeight;
             } else {
-              normChinY = normEyeCenterY + 1.60 * normEyeDistance;
+              normChinY = normEyeCenterY + (1.75 * eyeDistPx) / sourceHeight;
             }
-            normChinY = Math.min(0.99, normChinY);
+            normChinY = Math.min(0.995, normChinY);
 
-            const normFullHeadHeight = Math.max(0.18, normChinY - normTopHeadY);
-
-            const standardCanvasHeight = 1800;
-            const standardCanvasWidth = Math.round(standardCanvasHeight * preset.aspectRatio);
-
-            const targetHeadHeightPercent = (preset.overlaySpecs.chinPercent - preset.overlaySpecs.headTopPercent) / 100;
-            const targetHeadHeightPx = standardCanvasHeight * targetHeadHeightPercent;
-
-            const baseScale = Math.min(standardCanvasWidth / img.width, standardCanvasHeight / img.height);
-            const headScaleNeeded = targetHeadHeightPx / (normFullHeadHeight * img.height);
-            
-            const calculatedZoom = headScaleNeeded / baseScale;
-            const rawZoom = Math.max(0.65, Math.min(1.75, calculatedZoom));
-            const zoom = isFinite(rawZoom) && rawZoom > 0 ? rawZoom : 1.0;
-            const finalScale = baseScale * zoom;
-
-            const targetHeadTopPxOnCanvas = (preset.overlaySpecs.headTopPercent / 100) * standardCanvasHeight;
-            const rawOffsetX = (0.5 - normFaceCenterX) * img.width * finalScale;
-            const rawOffsetY = targetHeadTopPxOnCanvas - (standardCanvasHeight / 2) - (normTopHeadY - 0.5) * img.height * finalScale;
-
-            const targetOffsetX = Math.max(-500, Math.min(500, isFinite(rawOffsetX) ? rawOffsetX : 0));
-            const targetOffsetY = Math.max(-500, Math.min(500, isFinite(rawOffsetY) ? rawOffsetY : 0));
-
-            const computedAdjustments: ImageAdjustments = {
-              ...DEFAULT_ADJUSTMENTS,
-              zoom: Number(zoom.toFixed(2)),
-              rotation: Number((isFinite(rotationAngle) ? rotationAngle : 0).toFixed(1)),
-              offsetX: Number(targetOffsetX.toFixed(0)),
-              offsetY: Number(targetOffsetY.toFixed(0)),
-            };
-            setAdjustments(computedAdjustments);
-            setInitialAdjustments(computedAdjustments);
+            // Total head height in normalized Y units
+            normFullHeadHeight = Math.max(0.15, normChinY - normTopHeadY);
           }
         }
       } catch (faceErr) {
@@ -306,8 +367,7 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
 
         for (let y = 0; y < mHeight; y++) {
           for (let x = 0; x < mWidth; x++) {
-            const confidence = maskData[y * mWidth + x];
-            if (confidence > 0.35) {
+            if (maskData[y * mWidth + x] > 0.35) {
               if (y < minY) minY = y;
               if (y > maxY) maxY = y;
               if (x < minX) minX = x;
@@ -319,48 +379,50 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
 
         if (count > 50 && minY < maxY) {
           faceFound = true;
-          setFaceDetected(true);
-          setAiLog(t.aiSmartFallback);
-
           const normTopHeadY = minY / mHeight;
-          const normFaceCenterX = ((minX + maxX) / 2) / mWidth;
+          normFaceCenterX = ((minX + maxX) / 2) / mWidth;
           const normPersonHeight = (maxY - minY) / mHeight;
-
-          const normFullHeadHeight = Math.min(0.35, normPersonHeight * 0.35);
-
-          const standardCanvasHeight = 1800;
-          const standardCanvasWidth = Math.round(standardCanvasHeight * preset.aspectRatio);
-
-          const baseScale = Math.min(standardCanvasWidth / img.width, standardCanvasHeight / img.height);
-          const targetHeadHeightPercent = (preset.overlaySpecs.chinPercent - preset.overlaySpecs.headTopPercent) / 100;
-          const targetHeadHeightPx = standardCanvasHeight * targetHeadHeightPercent;
-          const headScaleNeeded = targetHeadHeightPx / (normFullHeadHeight * img.height);
-
-          const calculatedZoom = headScaleNeeded / baseScale;
-          const rawZoom = Math.max(0.70, Math.min(1.40, calculatedZoom));
-          const zoom = isFinite(rawZoom) && rawZoom > 0 ? rawZoom : 1.0;
-          const finalScale = baseScale * zoom;
-
-          const targetHeadTopPxOnCanvas = (preset.overlaySpecs.headTopPercent / 100) * standardCanvasHeight;
-          const rawOffsetX = (0.5 - normFaceCenterX) * img.width * finalScale;
-          const rawOffsetY = targetHeadTopPxOnCanvas - (standardCanvasHeight / 2) - (normTopHeadY - 0.5) * img.height * finalScale;
-
-          const targetOffsetX = Math.max(-500, Math.min(500, isFinite(rawOffsetX) ? rawOffsetX : 0));
-          const targetOffsetY = Math.max(-500, Math.min(500, isFinite(rawOffsetY) ? rawOffsetY : 0));
-
-          const computedAdjustments: ImageAdjustments = {
-            ...DEFAULT_ADJUSTMENTS,
-            zoom: Number(zoom.toFixed(2)),
-            rotation: 0,
-            offsetX: Number(targetOffsetX.toFixed(0)),
-            offsetY: Number(targetOffsetY.toFixed(0)),
-          };
-          setAdjustments(computedAdjustments);
-          setInitialAdjustments(computedAdjustments);
+          normFullHeadHeight = Math.min(0.40, normPersonHeight * 0.40);
+          normEyeCenterY = normTopHeadY + normFullHeadHeight * 0.38;
         }
       }
 
-      if (!faceFound) {
+      if (faceFound) {
+        setFaceDetected(true);
+        setAiLog(t.aiFaceFound);
+
+        const standardCanvasHeight = 1800;
+        const standardCanvasWidth = Math.round(standardCanvasHeight * preset.aspectRatio);
+
+        const targetHeadHeightPercent = (preset.overlaySpecs.chinPercent - preset.overlaySpecs.headTopPercent) / 100;
+        const targetHeadHeightPx = standardCanvasHeight * targetHeadHeightPercent;
+
+        const baseScale = Math.min(standardCanvasWidth / img.width, standardCanvasHeight / img.height);
+        const headScaleNeeded = targetHeadHeightPx / (normFullHeadHeight * img.height);
+        
+        const calculatedZoom = headScaleNeeded / baseScale;
+        const rawZoom = Math.max(0.3, Math.min(4.0, calculatedZoom));
+        const zoom = isFinite(rawZoom) && rawZoom > 0 ? rawZoom : 1.0;
+        const finalScale = baseScale * zoom;
+
+        // Align Eye Line to Preset Eye Line for optimum alignment
+        const targetEyeLinePxOnCanvas = (preset.overlaySpecs.eyeLinePercent / 100) * standardCanvasHeight;
+        const rawOffsetX = (0.5 - normFaceCenterX) * img.width * finalScale;
+        const rawOffsetY = targetEyeLinePxOnCanvas - (standardCanvasHeight / 2) - (normEyeCenterY - 0.5) * img.height * finalScale;
+
+        const targetOffsetX = Math.max(-1000, Math.min(1000, isFinite(rawOffsetX) ? rawOffsetX : 0));
+        const targetOffsetY = Math.max(-1000, Math.min(1000, isFinite(rawOffsetY) ? rawOffsetY : 0));
+
+        const computedAdjustments: ImageAdjustments = {
+          ...DEFAULT_ADJUSTMENTS,
+          zoom: Number(zoom.toFixed(2)),
+          rotation: Number((isFinite(rotationAngle) ? rotationAngle : 0).toFixed(1)),
+          offsetX: Number(targetOffsetX.toFixed(0)),
+          offsetY: Number(targetOffsetY.toFixed(0)),
+        };
+        setAdjustments(computedAdjustments);
+        setInitialAdjustments(computedAdjustments);
+      } else {
         setFaceDetected(false);
         setAiLog(t.aiNoFace);
         setInitialAdjustments({ ...DEFAULT_ADJUSTMENTS });
@@ -579,12 +641,23 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
           )}
 
           {/* Guidelines Overlay Layer */}
-          <div className="relative aspect-[2/3] w-full max-w-[280px] md:max-w-[300px] flex items-center justify-center">
+          <div 
+            className="relative w-full max-w-[280px] md:max-w-[300px] flex items-center justify-center cursor-grab active:cursor-grabbing select-none"
+            style={{ aspectRatio: preset.aspectRatio }}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            onWheel={handleWheel}
+          >
             
             {/* Display Canvas containing the image */}
             <canvas 
               ref={displayCanvasRef} 
-              className="w-full h-full object-contain rounded-lg shadow-lg"
+              className="w-full h-full object-contain rounded-lg shadow-lg pointer-events-none"
             />
 
             {/* Passport template guidelines (strictly drawn on top) */}
@@ -593,9 +666,9 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
                 {/* Visual guidelines drawn with absolute coordinates matching the percentage of output */}
                 <div className="relative w-full h-full">
                   
-                  {/* Top margin buffer marker (2-4mm vietnam, custom for US) */}
+                  {/* Top margin buffer marker */}
                   <div 
-                    className="absolute left-0 right-0 border-t border-dashed border-yellow-400/80 flex items-center justify-end pr-2 text-[9px] text-yellow-300 font-medium"
+                    className="absolute left-0 right-0 border-t-2 border-dashed border-yellow-400/90 flex items-center justify-end pr-2 text-[10px] text-yellow-300 font-bold drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]"
                     style={{ top: `${guideLines.headTopPercent}%` }}
                   >
                     {t.topHead}
@@ -603,7 +676,7 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
 
                   {/* Eye line guidelines */}
                   <div 
-                    className="absolute left-0 right-0 border-t border-dotted border-sky-400/80 flex items-center justify-end pr-2 text-[9px] text-sky-300 font-medium"
+                    className="absolute left-0 right-0 border-t-2 border-dotted border-sky-400/90 flex items-center justify-end pr-2 text-[10px] text-sky-300 font-bold drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]"
                     style={{ top: `${guideLines.eyeLinePercent}%` }}
                   >
                     {t.eyeLine}
@@ -611,27 +684,30 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
 
                   {/* Chin guidelines */}
                   <div 
-                    className="absolute left-0 right-0 border-t border-dashed border-yellow-400/80 flex items-center justify-end pr-2 text-[9px] text-yellow-300 font-medium"
+                    className="absolute left-0 right-0 border-t-2 border-dashed border-yellow-400/90 flex items-center justify-end pr-2 text-[10px] text-yellow-300 font-bold drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]"
                     style={{ top: `${guideLines.chinPercent}%` }}
                   >
                     {t.chin}
                   </div>
 
-                  {/* Portrait Oval frame centered */}
+                  {/* Portrait Oval frame centered from top head to chin */}
                   <div 
-                    className="absolute left-1/2 -translate-x-1/2 border-2 border-teal-400/60 rounded-[50%/40%] flex items-center justify-center"
+                    className="absolute left-1/2 -translate-x-1/2 border-2 border-teal-400/80 rounded-[50%] flex items-center justify-center shadow-[0_0_10px_rgba(45,212,191,0.3)]"
                     style={{ 
                       top: `${guideLines.headTopPercent}%`, 
-                      bottom: `${100 - guideLines.chinPercent}%`,
-                      width: '56%'
+                      height: `${guideLines.chinPercent - guideLines.headTopPercent}%`,
+                      width: '60%'
                     }}
                   >
-                    {/* Inner cross guide */}
-                    <div className="w-full h-px bg-teal-400/20" />
+                    {/* Inner eye line guide inside oval */}
+                    <div 
+                      className="absolute left-0 right-0 border-t border-sky-400/40"
+                      style={{ top: `${((guideLines.eyeLinePercent - guideLines.headTopPercent) / (guideLines.chinPercent - guideLines.headTopPercent)) * 100}%` }}
+                    />
                   </div>
 
                   {/* Symmetry Vertical Line */}
-                  <div className="absolute left-1/2 top-0 bottom-0 border-l border-dashed border-teal-400/20 -translate-x-1/2" />
+                  <div className="absolute left-1/2 top-0 bottom-0 border-l border-dashed border-teal-400/30 -translate-x-1/2" />
                 </div>
 
               </div>
@@ -767,7 +843,7 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
                 id="adjust_zoom_range"
                 type="range"
                 min="0.3"
-                max="3.0"
+                max="3.5"
                 step="0.05"
                 value={adjustments.zoom}
                 onChange={(e) => handleSliderChange('zoom', parseFloat(e.target.value))}
@@ -805,8 +881,8 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
               <input
                 id="adjust_offset_x_range"
                 type="range"
-                min="-200"
-                max="200"
+                min="-600"
+                max="600"
                 step="2"
                 value={adjustments.offsetX}
                 onChange={(e) => handleSliderChange('offsetX', parseInt(e.target.value))}
@@ -823,8 +899,8 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
               <input
                 id="adjust_offset_y_range"
                 type="range"
-                min="-200"
-                max="200"
+                min="-600"
+                max="600"
                 step="2"
                 value={adjustments.offsetY}
                 onChange={(e) => handleSliderChange('offsetY', parseInt(e.target.value))}
