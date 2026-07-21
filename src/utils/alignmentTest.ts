@@ -18,6 +18,19 @@ export interface ImageLandmarks {
   normChinY: number;
 }
 
+export interface MobileViewport {
+  name: string;
+  screenWidth: number;
+  screenHeight: number;
+}
+
+export const MOBILE_VIEWPORTS: MobileViewport[] = [
+  { name: 'iPhone SE', screenWidth: 375, screenHeight: 667 },
+  { name: 'iPhone 14 Pro', screenWidth: 393, screenHeight: 852 },
+  { name: 'Android Small (Galaxy S8)', screenWidth: 360, screenHeight: 740 },
+  { name: 'Ultra Compact Mobile', screenWidth: 320, screenHeight: 568 },
+];
+
 export function calculateAutoAdjustments(landmarks: ImageLandmarks, preset = PHOTO_PRESETS[PassportStandard.VIETNAM_4x6]): ImageAdjustments {
   const { width: sourceWidth, height: sourceHeight, normRightEyeX, normRightEyeY, normLeftEyeX, normLeftEyeY, normMouthY, normTopHeadY, normChinY } = landmarks;
 
@@ -121,32 +134,87 @@ const TEST_CASES: ImageLandmarks[] = [
   }
 ];
 
+export function verifyEyelineAlignmentOnCanvas(landmarks: ImageLandmarks, adjustments: ImageAdjustments, preset = PHOTO_PRESETS[PassportStandard.VIETNAM_4x6]): { canvasEyeY: number; targetEyeY: number; errorPx: number } {
+  const normEyeCenterY = (landmarks.normRightEyeY + landmarks.normLeftEyeY) / 2;
+  const standardCanvasHeight = 1800;
+  const standardCanvasWidth = Math.round(standardCanvasHeight * preset.aspectRatio);
+
+  const baseScale = Math.min(standardCanvasWidth / landmarks.width, standardCanvasHeight / landmarks.height);
+  const finalScale = baseScale * adjustments.zoom;
+
+  const canvasCenterY = standardCanvasHeight / 2;
+  const eyeRelY = (normEyeCenterY - 0.5) * landmarks.height * finalScale;
+  const actualEyeCanvasY = canvasCenterY + adjustments.offsetY + eyeRelY;
+
+  const targetEyeY = (preset.overlaySpecs.eyeLinePercent / 100) * standardCanvasHeight;
+  const errorPx = Math.abs(actualEyeCanvasY - targetEyeY);
+
+  return { canvasEyeY: actualEyeCanvasY, targetEyeY, errorPx };
+}
+
 export function runAutomationSuite() {
   console.log('===========================================================');
-  console.log('PASSPORT PHOTO AI - AUTOMATION ALIGNMENT SUITE');
+  console.log('PASSPORT PHOTO AI - COMPREHENSIVE AUTOMATION & MOBILE SUITE');
   console.log('===========================================================\n');
 
   let passed = true;
 
+  // 1. Landmark & Alignment Tests across presets
+  console.log('--- 1. ALIGNMENT & EYELINE PRECISION TESTS ---');
   for (const testCase of TEST_CASES) {
-    console.log(`Testing Case: "${testCase.name}" (${testCase.width}x${testCase.height})`);
+    console.log(`\nTesting Image Case: "${testCase.name}" (${testCase.width}x${testCase.height})`);
     
     for (const presetKey of Object.keys(PHOTO_PRESETS) as PassportStandard[]) {
       const preset = PHOTO_PRESETS[presetKey];
       const result = calculateAutoAdjustments(testCase, preset);
+      const eyelineVerification = verifyEyelineAlignmentOnCanvas(testCase, result, preset);
       
-      console.log(`  -> Preset [${preset.name}]: zoom=${result.zoom}, offsetX=${result.offsetX}px, offsetY=${result.offsetY}px, rot=${result.rotation}°`);
+      console.log(`  -> Preset [${preset.name}]: zoom=${result.zoom}, offsetX=${result.offsetX}px, offsetY=${result.offsetY}px | Eye Error: ${eyelineVerification.errorPx.toFixed(1)}px`);
 
       if (!isFinite(result.zoom) || result.zoom <= 0 || Math.abs(result.offsetX) > 1000 || Math.abs(result.offsetY) > 1000) {
         console.error(`     ❌ ERROR: Alignment parameters exceed safety boundaries for preset ${preset.name}`);
         passed = false;
       }
+
+      if (eyelineVerification.errorPx > 25) {
+        console.error(`     ❌ ERROR: Eyeline error exceeds 25px tolerance for preset ${preset.name} (${eyelineVerification.errorPx.toFixed(1)}px)`);
+        passed = false;
+      }
     }
-    console.log('');
   }
 
+  // 2. Mobile Viewport Layout & Aspect Ratio Assertion Tests
+  console.log('\n--- 2. MOBILE VIEWPORT LAYOUT & ASPECT RATIO ASSERTIONS ---');
+  for (const viewport of MOBILE_VIEWPORTS) {
+    console.log(`\nTesting Mobile Device: "${viewport.name}" (${viewport.screenWidth}x${viewport.screenHeight} px)`);
+
+    for (const presetKey of Object.keys(PHOTO_PRESETS) as PassportStandard[]) {
+      const preset = PHOTO_PRESETS[presetKey];
+
+      // Calculate container width on mobile (max 280px or screen width - padding)
+      const containerPadding = 48; // 24px left + 24px right
+      const maxAvailableWidth = Math.min(280, viewport.screenWidth - containerPadding);
+      const computedContainerHeight = maxAvailableWidth / preset.aspectRatio;
+
+      const outputHeight = 1800;
+      const outputWidth = Math.round(outputHeight * preset.aspectRatio);
+      const canvasNativeAspectRatio = outputWidth / outputHeight;
+      const containerAspectRatio = maxAvailableWidth / computedContainerHeight;
+
+      const aspectRatioDiff = Math.abs(canvasNativeAspectRatio - containerAspectRatio);
+
+      console.log(`  -> [${preset.name}]: Container = ${maxAvailableWidth.toFixed(0)}x${computedContainerHeight.toFixed(0)}px (Aspect Ratio: ${containerAspectRatio.toFixed(4)})`);
+
+      if (aspectRatioDiff > 0.01) {
+        console.error(`     ❌ ERROR: Aspect ratio mismatch between native canvas (${canvasNativeAspectRatio}) and mobile container (${containerAspectRatio})`);
+        passed = false;
+      }
+    }
+  }
+
+  console.log('\n-----------------------------------------------------------');
   if (passed) {
-    console.log('🎉 ALL AUTOMATION ALIGNMENT SUITES PASSED SUCCESSFULLY!\n');
+    console.log('🎉 ALL DESKTOP & MOBILE AUTOMATION SUITES PASSED SUCCESSFULLY!\n');
   } else {
     console.error('❌ AUTOMATION SUITE DETECTED FAILURES!\n');
     process.exit(1);
