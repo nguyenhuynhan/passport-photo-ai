@@ -68,8 +68,9 @@ export default function App() {
     // Auto-test query param handler
     const params = new URLSearchParams(window.location.search);
     if (params.get('autotest') === 'true' || params.get('autoTest') === 'true') {
-      console.log('[AUTOMATION TEST] Auto-selecting sample photo and transitioning to Step 2...');
-      setImageSrc(sampleUrl);
+      const customPhoto = params.get('photo') || sampleUrl;
+      console.log('[AUTOMATION TEST] Auto-selecting photo and transitioning to Step 2:', customPhoto);
+      setImageSrc(customPhoto);
       setStep(2);
     }
   }, []);

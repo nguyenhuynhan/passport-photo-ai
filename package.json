@@ -12,7 +12,8 @@
     "test": "tsx src/utils/ai.test.ts",
     "test:alignment": "tsx src/utils/alignmentTest.ts",
     "test:screenshot": "tsx scripts/capture-screenshots.ts",
-    "process:sample": "tsx scripts/process-sample-photo.ts"
+    "process:sample": "tsx scripts/process-sample-photo.ts",
+    "process:user": "tsx scripts/process-user-photo.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
