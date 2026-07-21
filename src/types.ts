@@ -149,20 +149,17 @@ export function getPresetForLanguage(lang: string): PhotoPreset {
   return PHOTO_PRESETS[PassportStandard.VIETNAM_4x6];
 }
 
-export function detectInitialPreset(): PhotoPreset {
+export function detectInitialPreset(lang?: string): PhotoPreset {
+  if (lang) {
+    return getPresetForLanguage(lang);
+  }
   if (typeof navigator !== 'undefined') {
-    const lang = (navigator.language || (navigator as any).userLanguage || '').toLowerCase();
-    if (lang.startsWith('vi')) {
-      return PHOTO_PRESETS[PassportStandard.VIETNAM_4x6];
-    }
-    if (lang.startsWith('zh')) {
+    const browserLang = (navigator.language || (navigator as any).userLanguage || '').toLowerCase();
+    if (browserLang.startsWith('zh')) {
       return PHOTO_PRESETS[PassportStandard.CHINA_VISA];
     }
-    if (lang === 'en-us' || lang.includes('us')) {
+    if (browserLang.startsWith('en')) {
       return PHOTO_PRESETS[PassportStandard.US_VISA];
-    }
-    if (lang.startsWith('en')) {
-      return PHOTO_PRESETS[PassportStandard.SCHENGEN];
     }
   }
   return PHOTO_PRESETS[PassportStandard.VIETNAM_4x6];

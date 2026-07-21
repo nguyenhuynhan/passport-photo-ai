@@ -20,7 +20,7 @@ export default function App() {
   };
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
-  const [selectedPreset, setSelectedPreset] = useState<PhotoPreset>(() => detectInitialPreset());
+  const [selectedPreset, setSelectedPreset] = useState<PhotoPreset>(() => detectInitialPreset(language));
 
   // Custom specifications (shown if CUSTOM is selected)
   const [customWidth, setCustomWidth] = useState<number>(40);
