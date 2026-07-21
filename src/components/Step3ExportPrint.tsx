@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { ArrowLeft, ArrowRight, UserCheck, Download } from 'lucide-react';
+import { UserCheck, Download } from 'lucide-react';
 import { PhotoPreset, PassportStandard } from '../types';
 import PrintingGrid from './PrintingGrid';
 import { Language, TRANSLATIONS } from '../locales/translations';
@@ -10,16 +10,14 @@ interface Step3ExportPrintProps {
   croppedPhoto: string;
   preset: PhotoPreset;
   language: Language;
-  onBackToEditor: () => void;
-  onCreateNew: () => void;
+  onBackToEditor?: () => void;
+  onCreateNew?: () => void;
 }
 
 export default function Step3ExportPrint({
   croppedPhoto,
   preset,
   language,
-  onBackToEditor,
-  onCreateNew,
 }: Step3ExportPrintProps) {
   const t = TRANSLATIONS[language];
 
@@ -44,23 +42,10 @@ export default function Step3ExportPrint({
       className="space-y-8"
     >
       <div className="flex items-center justify-between border-b border-slate-900 pb-3">
-        <button
-          id="final_step_back_btn"
-          onClick={onBackToEditor}
-          className="flex items-center gap-1 text-xs text-slate-400 hover:text-white transition bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-800"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          <span>{t.backToEditor}</span>
-        </button>
-
-        <button
-          id="start_new_photo_btn"
-          onClick={onCreateNew}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-500 hover:bg-teal-600 text-slate-950 font-bold rounded-lg text-xs transition"
-        >
-          <span>{t.createNew}</span>
-          <ArrowRight className="w-3.5 h-3.5" />
-        </button>
+        <div className="flex items-center gap-1.5 text-xs">
+          <span className="text-slate-400">{t.editingPresetLabel}</span>
+          <span className="text-teal-400 font-semibold">{getPresetName(preset.id)}</span>
+        </div>
       </div>
 
       {/* Result Grid with Printable Grid on right */}

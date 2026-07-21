@@ -134,8 +134,8 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     privacyBadge: 'Bảo mật 100% (Offline)',
     localAiBadge: 'AI CỤC BỘ',
 
-    step1Title: 'Chọn ảnh',
-    step2Title: 'Căn chỉnh',
+    step1Title: 'Chọn',
+    step2Title: 'Sửa',
     step3Title: 'Xuất',
 
     selectPresetTitle: 'Chọn chuẩn kích thước ảnh:',
@@ -216,7 +216,7 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     backToEditor: 'Quay lại chỉnh sửa thêm',
     createNew: 'Tạo ảnh mới',
 
-    footerCopyright: '© 2026 AI Passport Photo Maker. Bản quyền được bảo lưu.',
+    footerCopyright: '© 2026 idfoto. Bản quyền được bảo lưu.',
     footerPrivacyText: 'Bảo mật tuyệt đối: Toàn bộ quá trình tách nền & phân tích AI được thực hiện 100% offline tại trình duyệt của bạn. Chúng tôi không bao giờ tải ảnh chân dung của bạn lên bất kỳ máy chủ nào.',
 
     presetViCountry: 'VIỆT NAM',
@@ -245,8 +245,8 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     privacyBadge: '100% Private (Offline)',
     localAiBadge: 'LOCAL AI',
 
-    step1Title: 'Select photo',
-    step2Title: 'Align',
+    step1Title: 'Select',
+    step2Title: 'Edit',
     step3Title: 'Export',
 
     selectPresetTitle: 'Select photo dimensions preset:',
@@ -327,7 +327,7 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     backToEditor: 'Back to Editor',
     createNew: 'Create New Photo',
 
-    footerCopyright: '© 2026 AI Passport Photo Maker. All rights reserved.',
+    footerCopyright: '© 2026 idfoto. All rights reserved.',
     footerPrivacyText: '100% Private: All AI background removal and biometric analysis run 100% offline inside your browser. We never upload your portrait photos to any server.',
 
     presetViCountry: 'VIETNAM',
@@ -356,9 +356,9 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     privacyBadge: '100% 隐私保护 (离线运行)',
     localAiBadge: '本地 AI',
 
-    step1Title: '选择照片',
-    step2Title: '对齐',
-    step3Title: '导出',
+    step1Title: '选',
+    step2Title: '修',
+    step3Title: '导',
 
     selectPresetTitle: '选择照片尺寸规格：',
     choosePhotoTitle: '上传人像照片：',
@@ -438,7 +438,7 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     backToEditor: '返回继续编辑',
     createNew: '制作新照片',
 
-    footerCopyright: '© 2026 AI Passport Photo Maker. 版权所有。',
+    footerCopyright: '© 2026 idfoto. 版权所有。',
     footerPrivacyText: '100% 隐私安全：所有 AI 抠图与生物特征分析均在您的浏览器本地 100% 离线运行，我们绝不会将您的照片上传至任何服务器。',
 
     presetViCountry: '越南',

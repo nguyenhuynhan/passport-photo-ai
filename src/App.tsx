@@ -277,8 +277,6 @@ export default function App() {
             croppedPhoto={croppedPhoto || imageSrc}
             preset={selectedPreset}
             language={language}
-            onBackToEditor={() => setStep(2)}
-            onCreateNew={handleResetAll}
           />
         )}
       </main>
