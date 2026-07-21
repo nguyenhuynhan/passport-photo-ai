@@ -65,6 +65,7 @@ export interface Translations {
   removeBgToggle: string;
   edgeFeatherLabel: string;
   edgeThresholdLabel: string;
+  colorSpillLabel: string;
   bgColorLabel: string;
   lightAndColorLabel: string;
   zoom: string;
@@ -185,6 +186,7 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     removeBgToggle: 'Tách nền phía sau bằng AI',
     edgeFeatherLabel: 'Độ mịn viền (Feathering)',
     edgeThresholdLabel: 'Lọc nhiễu nền (Sensitivity)',
+    colorSpillLabel: 'Khử viền màu phông gốc (Spill Protection)',
     bgColorLabel: 'Màu phông nền thay thế:',
     lightAndColorLabel: 'Điều chỉnh ánh sáng & màu sắc',
     zoom: 'Thu phóng (Zoom)',
@@ -298,6 +300,7 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     removeBgToggle: 'AI Background Removal',
     edgeFeatherLabel: 'Edge Smoothness (Feathering)',
     edgeThresholdLabel: 'Noise Filter (Sensitivity)',
+    colorSpillLabel: 'Color Spill Protection (De-contamination)',
     bgColorLabel: 'Replacement Background Color:',
     lightAndColorLabel: 'Lighting & Color Adjustments',
     zoom: 'Zoom',
@@ -411,6 +414,7 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     removeBgToggle: 'AI 智能背景替换',
     edgeFeatherLabel: '边缘平滑度 (Feathering)',
     edgeThresholdLabel: '背景去噪 (Sensitivity)',
+    colorSpillLabel: '去杂色/消除原背景溢色 (Spill Protection)',
     bgColorLabel: '替换背景颜色：',
     lightAndColorLabel: '光照与色彩调节',
     zoom: '缩放 (Zoom)',

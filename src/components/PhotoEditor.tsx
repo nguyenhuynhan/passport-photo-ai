@@ -61,6 +61,7 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
   // Background removal refinement tuning states
   const [edgeFeather, setEdgeFeather] = useState<number>(3); // 1 to 10 (feather / smoothness radius)
   const [bgSensitivity, setBgSensitivity] = useState<number>(50); // 0 to 100 (threshold noise cut sensitivity)
+  const [colorSpillProtection, setColorSpillProtection] = useState<number>(60); // 0 to 100 (spill de-contamination percentage)
   
   // AI processing states
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
@@ -456,6 +457,29 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
           return top + dy * (bottom - top);
         };
 
+        // Pass 1: Estimate average background color of original photo for Color Spill De-contamination
+        let oldBgSumR = 0, oldBgSumG = 0, oldBgSumB = 0, oldBgCount = 0;
+        const sampleStep = Math.max(1, Math.floor(workWidth / 120));
+        for (let y = 0; y < workHeight; y += sampleStep) {
+          const v = y / (workHeight - 1 || 1);
+          for (let x = 0; x < workWidth; x += sampleStep) {
+            const u = x / (workWidth - 1 || 1);
+            const rawConf = sampleMaskBilinear(u, v);
+            if (rawConf <= 0.12) {
+              const idx = (y * workWidth + x) * 4;
+              oldBgSumR += data[idx];
+              oldBgSumG += data[idx + 1];
+              oldBgSumB += data[idx + 2];
+              oldBgCount++;
+            }
+          }
+        }
+
+        const avgOldR = oldBgCount > 10 ? oldBgSumR / oldBgCount : 200;
+        const avgOldG = oldBgCount > 10 ? oldBgSumG / oldBgCount : 200;
+        const avgOldB = oldBgCount > 10 ? oldBgSumB / oldBgCount : 200;
+        const spillFactor = colorSpillProtection / 100;
+
         // Blend pixels with multi-layer mask refinement
         for (let y = 0; y < workHeight; y++) {
           const v = y / (workHeight - 1 || 1);
@@ -488,12 +512,28 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
             const origB = data[pixelIndex + 2];
             const origA = data[pixelIndex + 3] / 255;
 
+            // Apply Color Spill De-contamination on soft edge pixels
+            let fgR = origR;
+            let fgG = origG;
+            let fgB = origB;
+
+            if (spillFactor > 0 && confidence > 0.05 && confidence < 0.92) {
+              const invC = 1 - confidence;
+              const calcFgR = Math.max(0, Math.min(255, (origR - invC * avgOldR) / Math.max(0.1, confidence)));
+              const calcFgG = Math.max(0, Math.min(255, (origG - invC * avgOldG) / Math.max(0.1, confidence)));
+              const calcFgB = Math.max(0, Math.min(255, (origB - invC * avgOldB) / Math.max(0.1, confidence)));
+
+              fgR = origR * (1 - spillFactor) + calcFgR * spillFactor;
+              fgG = origG * (1 - spillFactor) + calcFgG * spillFactor;
+              fgB = origB * (1 - spillFactor) + calcFgB * spillFactor;
+            }
+
             const finalAlpha = origA * confidence + bgA * (1 - confidence);
 
             if (finalAlpha > 0) {
-              data[pixelIndex] = Math.round(origR * confidence + bgR * (1 - confidence));
-              data[pixelIndex + 1] = Math.round(origG * confidence + bgG * (1 - confidence));
-              data[pixelIndex + 2] = Math.round(origB * confidence + bgB * (1 - confidence));
+              data[pixelIndex] = Math.round(fgR * confidence + bgR * (1 - confidence));
+              data[pixelIndex + 1] = Math.round(fgG * confidence + bgG * (1 - confidence));
+              data[pixelIndex + 2] = Math.round(fgB * confidence + bgB * (1 - confidence));
               data[pixelIndex + 3] = Math.round(finalAlpha * 255);
             } else {
               data[pixelIndex + 3] = 0;
@@ -510,7 +550,7 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
     // Redraw the main canvas
     drawMainCanvas();
 
-  }, [loadedImg, imageSrc, removeBg, segmentationMask, bgColor, edgeFeather, bgSensitivity]);
+  }, [loadedImg, imageSrc, removeBg, segmentationMask, bgColor, edgeFeather, bgSensitivity, colorSpillProtection]);
 
   // Redraw when adjustments change
   useEffect(() => {
@@ -827,6 +867,22 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
                     max="10"
                     value={edgeFeather}
                     onChange={(e) => setEdgeFeather(parseInt(e.target.value))}
+                    className="w-full accent-teal-400 h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-300 font-medium">{t.colorSpillLabel}</span>
+                    <span className="text-teal-400 font-mono font-semibold">{colorSpillProtection}%</span>
+                  </div>
+                  <input
+                    id="color_spill_range"
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={colorSpillProtection}
+                    onChange={(e) => setColorSpillProtection(parseInt(e.target.value))}
                     className="w-full accent-teal-400 h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer"
                   />
                 </div>
