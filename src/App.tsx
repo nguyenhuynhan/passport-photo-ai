@@ -17,11 +17,10 @@ export default function App() {
   const handleLanguageChange = (newLang: Language) => {
     setLanguage(newLang);
     saveLanguagePreference(newLang);
-    setSelectedPreset(getPresetForLanguage(newLang));
   };
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
-  const [selectedPreset, setSelectedPreset] = useState<PhotoPreset>(() => getPresetForLanguage(language));
+  const [selectedPreset, setSelectedPreset] = useState<PhotoPreset>(() => detectInitialPreset());
 
   // Custom specifications (shown if CUSTOM is selected)
   const [customWidth, setCustomWidth] = useState<number>(40);

@@ -71,80 +71,6 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
   const [imgHeight, setImgHeight] = useState<number>(0);
   const [loadedImg, setLoadedImg] = useState<HTMLImageElement | null>(null);
 
-  // Interactive canvas dragging & wheel zoom states
-  const [isDragging, setIsDragging] = useState(false);
-  const dragStartRef = useRef<{ x: number; y: number; offsetX: number; offsetY: number }>({ x: 0, y: 0, offsetX: 0, offsetY: 0 });
-
-  const handleMouseDown = (e: React.MouseEvent) => {
-    setIsDragging(true);
-    dragStartRef.current = {
-      x: e.clientX,
-      y: e.clientY,
-      offsetX: adjustments.offsetX,
-      offsetY: adjustments.offsetY,
-    };
-  };
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging) return;
-    const dx = e.clientX - dragStartRef.current.x;
-    const dy = e.clientY - dragStartRef.current.y;
-    
-    const container = containerRef.current;
-    const containerHeight = container ? container.clientHeight : 400;
-    const scaleRatio = 1800 / containerHeight;
-
-    setAdjustments((prev) => ({
-      ...prev,
-      offsetX: Math.max(-1000, Math.min(1000, Math.round(dragStartRef.current.offsetX + dx * scaleRatio))),
-      offsetY: Math.max(-1000, Math.min(1000, Math.round(dragStartRef.current.offsetY + dy * scaleRatio))),
-    }));
-  };
-
-  const handleMouseUp = () => {
-    setIsDragging(false);
-  };
-
-  const handleWheel = (e: React.WheelEvent) => {
-    const delta = e.deltaY > 0 ? -0.05 : 0.05;
-    setAdjustments((prev) => ({
-      ...prev,
-      zoom: Number(Math.max(0.3, Math.min(3.5, prev.zoom + delta)).toFixed(2)),
-    }));
-  };
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    if (e.touches.length === 1) {
-      setIsDragging(true);
-      dragStartRef.current = {
-        x: e.touches[0].clientX,
-        y: e.touches[0].clientY,
-        offsetX: adjustments.offsetX,
-        offsetY: adjustments.offsetY,
-      };
-    }
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (!isDragging || e.touches.length !== 1) return;
-    const dx = e.touches[0].clientX - dragStartRef.current.x;
-    const dy = e.touches[0].clientY - dragStartRef.current.y;
-    
-    const container = containerRef.current;
-    const containerHeight = container ? container.clientHeight : 400;
-    const scaleRatio = 1800 / containerHeight;
-
-    setAdjustments((prev) => ({
-      ...prev,
-      offsetX: Math.max(-1000, Math.min(1000, Math.round(dragStartRef.current.offsetX + dx * scaleRatio))),
-      offsetY: Math.max(-1000, Math.min(1000, Math.round(dragStartRef.current.offsetY + dy * scaleRatio))),
-    }));
-  };
-
-  const handleTouchEnd = () => {
-    setIsDragging(false);
-  };
-
   // Helper to emit debounced cropped photo to parent state
   const emitDebouncedCropChange = () => {
     if (cropTimerRef.current) {
@@ -166,10 +92,6 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
   // Load preset defaults when preset changes
   useEffect(() => {
     setBgColor(preset.defaultBgColor);
-    const img = loadedImg || originalImageRef.current;
-    if (img && img.width && img.height) {
-      runAIProcessing(img);
-    }
   }, [preset]);
 
   // Load original image and run AI on mount/change
@@ -642,22 +564,14 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
 
           {/* Guidelines Overlay Layer */}
           <div 
-            className="relative w-full max-w-[280px] md:max-w-[300px] flex items-center justify-center cursor-grab active:cursor-grabbing select-none"
+            className="relative w-full max-w-[280px] md:max-w-[300px] flex items-center justify-center select-none"
             style={{ aspectRatio: preset.aspectRatio }}
-            onMouseDown={handleMouseDown}
-            onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp}
-            onMouseLeave={handleMouseUp}
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleTouchEnd}
-            onWheel={handleWheel}
           >
             
             {/* Display Canvas containing the image */}
             <canvas 
               ref={displayCanvasRef} 
-              className="w-full h-full object-contain rounded-lg shadow-lg pointer-events-none"
+              className="w-full h-full object-contain rounded-lg shadow-lg"
             />
 
             {/* Passport template guidelines (strictly drawn on top) */}
