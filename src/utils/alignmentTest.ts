@@ -47,33 +47,33 @@ export function calculateAutoAdjustments(landmarks: ImageLandmarks, preset = PHO
   const normEyeCenterY = (normRightEyeY + normLeftEyeY) / 2;
 
   const eyeDistNorm = (eyeDistPx / sourceHeight) > 0 ? (eyeDistPx / sourceHeight) : 0.15;
-  const computedTopHeadY = Math.max(0.005, normEyeCenterY - 1.30 * eyeDistNorm);
+  const computedTopHeadY = Math.max(0.005, normEyeCenterY - 2.0 * eyeDistNorm);
   
   let computedChinY = 0;
   if (normMouthY > normEyeCenterY) {
-    computedChinY = normMouthY + 0.65 * eyeDistNorm;
+    computedChinY = normMouthY + 1.0 * eyeDistNorm;
   } else {
-    computedChinY = normEyeCenterY + 1.45 * eyeDistNorm;
+    computedChinY = normEyeCenterY + 1.8 * eyeDistNorm;
   }
-  computedChinY = Math.min(0.995, Math.max(normEyeCenterY + 1.20 * eyeDistNorm, computedChinY));
+  computedChinY = Math.min(0.995, Math.max(normEyeCenterY + 1.6 * eyeDistNorm, computedChinY));
 
   let rawHeadHeight = computedChinY - computedTopHeadY;
-  if (rawHeadHeight < 2.2 * eyeDistNorm || rawHeadHeight > 3.2 * eyeDistNorm) {
-    rawHeadHeight = 2.70 * eyeDistNorm;
+  if (rawHeadHeight < 3.2 * eyeDistNorm || rawHeadHeight > 4.8 * eyeDistNorm) {
+    rawHeadHeight = 3.9 * eyeDistNorm;
   }
-  const normFullHeadHeight = Math.max(0.15, rawHeadHeight);
+  const normFullHeadHeight = Math.max(0.20, rawHeadHeight);
 
   const standardCanvasHeight = 1800;
   const standardCanvasWidth = Math.round(standardCanvasHeight * preset.aspectRatio);
 
-  const targetHeadHeightPercent = (preset.overlaySpecs.chinPercent - preset.overlaySpecs.headTopPercent) / 100;
+  const targetHeadHeightPercent = 0.62;
   const targetHeadHeightPx = standardCanvasHeight * targetHeadHeightPercent;
 
   const baseScale = Math.min(standardCanvasWidth / sourceWidth, standardCanvasHeight / sourceHeight);
   const headScaleNeeded = targetHeadHeightPx / (normFullHeadHeight * sourceHeight);
 
   const calculatedZoom = headScaleNeeded / baseScale;
-  const rawZoom = Math.max(0.3, Math.min(4.0, calculatedZoom));
+  const rawZoom = Math.max(0.6, Math.min(2.5, calculatedZoom));
   const zoom = isFinite(rawZoom) && rawZoom > 0 ? rawZoom : 1.0;
   const finalScale = baseScale * zoom;
 

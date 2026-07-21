@@ -269,22 +269,26 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
 
             const eyeDistNorm = (eyeDistPx / sourceHeight) > 0 ? (eyeDistPx / sourceHeight) : 0.15;
 
-            // Geometric top of head: top of skull is ~1.30 * eyeDistNorm above eyes
-            const geomTopHeadY = Math.max(0.005, normEyeCenterY - 1.30 * eyeDistNorm);
+            // Total head height in normalized Y units (skull top to chin ~ 3.9 * eyeDistNorm)
+            let computedTopHeadY = Math.max(0.005, normEyeCenterY - 2.0 * eyeDistNorm);
+            let computedChinY = Math.min(0.995, normEyeCenterY + 1.8 * eyeDistNorm);
 
-            // Find top of head using segmentation mask if available within realistic anatomical window
-            normTopHeadY = geomTopHeadY;
+            if (normMouthY > normEyeCenterY) {
+              computedChinY = Math.min(0.995, Math.max(normEyeCenterY + 1.6 * eyeDistNorm, normMouthY + 1.0 * eyeDistNorm));
+            }
+
+            // Refine top of head using segmentation mask if available within realistic anatomical window
+            normTopHeadY = computedTopHeadY;
             if (maskData && mWidth > 0 && mHeight > 0) {
               const scanCenterX = Math.floor(normFaceCenterX * mWidth);
               const scanHalfWidth = Math.max(3, Math.floor((eyeDistPx / sourceWidth) * mWidth * 0.8));
               const startX = Math.max(0, scanCenterX - scanHalfWidth);
               const endX = Math.min(mWidth - 1, scanCenterX + scanHalfWidth);
 
-              const minYToScan = Math.max(0, Math.floor((normEyeCenterY - 1.55 * eyeDistNorm) * mHeight));
-              const maxYToScan = Math.min(mHeight - 1, Math.floor((normEyeCenterY - 1.05 * eyeDistNorm) * mHeight));
+              const minYToScan = Math.max(0, Math.floor((normEyeCenterY - 2.3 * eyeDistNorm) * mHeight));
+              const maxYToScan = Math.min(mHeight - 1, Math.floor((normEyeCenterY - 1.5 * eyeDistNorm) * mHeight));
 
               let foundMaskTop = false;
-              // Require multiple consecutive positive mask pixels to avoid noise
               for (let y = minYToScan; y <= maxYToScan; y++) {
                 let countInRow = 0;
                 for (let x = startX; x <= endX; x++) {
@@ -301,21 +305,13 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
               }
             }
 
-            // Chin position calculation
-            let normChinY = 0;
-            if (normMouthY > normEyeCenterY) {
-              normChinY = normMouthY + 0.65 * eyeDistNorm;
-            } else {
-              normChinY = normEyeCenterY + 1.45 * eyeDistNorm;
+            const measuredHeadHeight = computedChinY - normTopHeadY;
+            // Constrain normalized head height to realistic anatomical bounds [3.2, 4.8] * eyeDistNorm
+            let safeHeadHeight = measuredHeadHeight;
+            if (safeHeadHeight < 3.2 * eyeDistNorm || safeHeadHeight > 4.8 * eyeDistNorm) {
+              safeHeadHeight = 3.9 * eyeDistNorm;
             }
-            normChinY = Math.min(0.995, Math.max(normEyeCenterY + 1.20 * eyeDistNorm, normChinY));
-
-            // Total head height in normalized Y units constrained to realistic anatomical range [2.2, 3.2] * eyeDistNorm
-            let rawHeadHeight = normChinY - normTopHeadY;
-            if (rawHeadHeight < 2.2 * eyeDistNorm || rawHeadHeight > 3.2 * eyeDistNorm) {
-              rawHeadHeight = 2.70 * eyeDistNorm;
-            }
-            normFullHeadHeight = Math.max(0.15, rawHeadHeight);
+            normFullHeadHeight = Math.max(0.20, safeHeadHeight);
           }
         }
       } catch (faceErr) {
@@ -345,7 +341,7 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
           normFaceCenterX = Math.max(0.1, Math.min(0.9, ((minX + maxX) / 2) / mWidth));
           const personWidthNorm = (maxX - minX) / mWidth;
           
-          normFullHeadHeight = Math.max(0.20, Math.min(0.38, personWidthNorm * 0.90));
+          normFullHeadHeight = Math.max(0.25, Math.min(0.42, personWidthNorm * 0.95));
           normTopHeadY = normPersonTopY;
           normEyeCenterY = normTopHeadY + normFullHeadHeight * 0.45;
         }
@@ -356,7 +352,7 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
         faceFound = true;
         normFaceCenterX = 0.50;
         normEyeCenterY = 0.35;
-        normFullHeadHeight = 0.30;
+        normFullHeadHeight = 0.38;
       }
 
       if (faceFound) {
@@ -366,18 +362,19 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
         const standardCanvasHeight = 1800;
         const standardCanvasWidth = Math.round(standardCanvasHeight * preset.aspectRatio);
 
-        const targetHeadHeightPercent = (preset.overlaySpecs.chinPercent - preset.overlaySpecs.headTopPercent) / 100;
+        // Optimal head height on passport canvas: ~62% of canvas height (1116px) for ideal template framing
+        const targetHeadHeightPercent = 0.62;
         const targetHeadHeightPx = standardCanvasHeight * targetHeadHeightPercent;
 
         const baseScale = Math.min(standardCanvasWidth / img.width, standardCanvasHeight / img.height);
         const headScaleNeeded = targetHeadHeightPx / (normFullHeadHeight * img.height);
         
         const calculatedZoom = headScaleNeeded / baseScale;
-        const rawZoom = Math.max(0.3, Math.min(4.0, calculatedZoom));
+        const rawZoom = Math.max(0.6, Math.min(2.5, calculatedZoom));
         const zoom = isFinite(rawZoom) && rawZoom > 0 ? rawZoom : 1.0;
         const finalScale = baseScale * zoom;
 
-        // Align Eye Line to Preset Eye Line for optimum alignment
+        // Align Eye Line EXACTLY to Preset Eye Line (42%) for optimum passport positioning
         const targetEyeLinePxOnCanvas = (preset.overlaySpecs.eyeLinePercent / 100) * standardCanvasHeight;
         const rawOffsetX = (0.5 - normFaceCenterX) * img.width * finalScale;
         const rawOffsetY = targetEyeLinePxOnCanvas - (standardCanvasHeight / 2) - (normEyeCenterY - 0.5) * img.height * finalScale;
