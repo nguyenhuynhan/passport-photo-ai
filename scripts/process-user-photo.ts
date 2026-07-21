@@ -37,6 +37,7 @@ async function processUserUploadedPhoto() {
   });
 
   const page = await browser.newPage();
+  page.on('console', (msg) => console.log('  [BROWSER LOG]', msg.text()));
   await page.setViewport({ width: 1280, height: 900, deviceScaleFactor: 1 });
 
   // Navigate with custom user photo parameter
@@ -47,7 +48,7 @@ async function processUserUploadedPhoto() {
     await page.waitForFunction(
       () => {
         const editorTest = (window as any).passportEditorTest;
-        return editorTest && !editorTest.isProcessing();
+        return editorTest && !editorTest.isProcessing() && editorTest.getAdjustments()?.zoom !== 1;
       },
       { timeout: 20000 }
     );

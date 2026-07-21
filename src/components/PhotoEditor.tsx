@@ -199,6 +199,7 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
       let normFaceCenterX = 0.5;
       let normEyeCenterY = 0.40;
       let normTopHeadY = 0.20;
+      let normChinY = 0.55;
       let normFullHeadHeight = 0.50;
       let rotationAngle = 0;
 
@@ -224,7 +225,7 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
 
             // Chin Tip: Landmark 152 is EXACT bottom tip of chin
             const chinTip = lms[152];
-            let normChinY = chinTip ? chinTip.y : normEyeCenterY + 0.30;
+            normChinY = chinTip ? chinTip.y : normEyeCenterY + 0.30;
 
             // Calculate eye rotation angle
             const dxPx = (leftPupil.x - rightPupil.x) * sW;
@@ -234,30 +235,37 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
             rotationAngle = Math.max(-15, Math.min(15, rawAngle));
 
             // Detect top of head from hair mask or forehead landmark 10
-            normTopHeadY = Math.max(0.01, normEyeCenterY - (normChinY - normEyeCenterY) * 1.05);
+            const eyeToChin = normChinY - normEyeCenterY;
+            const foreheadY = lms[10] ? lms[10].y : normEyeCenterY - 0.70 * eyeToChin;
+            
+            // Geometric default for top of hair/head (hair adds ~10-15% above forehead)
+            normTopHeadY = Math.max(0.01, normEyeCenterY - 1.08 * eyeToChin);
+
             if (maskData && mWidth > 0 && mHeight > 0) {
               const scanCenterX = Math.floor(normFaceCenterX * mWidth);
               const scanHalfWidth = Math.max(4, Math.floor((eyeDistPx / sW) * mWidth * 0.9));
               const startX = Math.max(0, scanCenterX - scanHalfWidth);
               const endX = Math.min(mWidth - 1, scanCenterX + scanHalfWidth);
-              const maxYToScan = Math.min(mHeight - 1, Math.floor(normEyeCenterY * mHeight));
 
-              for (let y = 0; y < maxYToScan; y++) {
+              const minScanY = Math.max(0, Math.floor((normEyeCenterY - 1.25 * eyeToChin) * mHeight));
+              const maxScanY = Math.min(mHeight - 1, Math.floor(foreheadY * mHeight));
+
+              // Scan upward from forehead to top of hair to find exact hair top boundary
+              for (let y = maxScanY; y >= minScanY; y--) {
                 let countInRow = 0;
                 for (let x = startX; x <= endX; x++) {
-                  if (maskData[y * mWidth + x] > 0.40) {
+                  if (maskData[y * mWidth + x] > 0.45) {
                     countInRow++;
-                    if (countInRow >= 2) {
+                    if (countInRow >= 3) {
                       normTopHeadY = y / mHeight;
                       break;
                     }
                   }
                 }
-                if (countInRow >= 2) break;
               }
             }
 
-            normFullHeadHeight = Math.max(0.20, normChinY - normTopHeadY);
+            normFullHeadHeight = Math.max(0.18, normChinY - normTopHeadY);
           }
         }
 
@@ -324,31 +332,35 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
               normFaceCenterX = Math.max(0.05, Math.min(0.95, normFaceCenterX));
               normEyeCenterY = Math.max(0.05, Math.min(0.95, normEyeCenterY));
 
-              let normChinY = normEyeCenterY + 1.8 * (eyeDistPx / sourceHeight);
+              normChinY = normEyeCenterY + 1.25 * (eyeDistPx / sourceHeight);
               if (normMouthY > normEyeCenterY) {
-                normChinY = normMouthY + (normMouthY - normEyeCenterY) * 0.95;
+                normChinY = normMouthY + (normMouthY - normEyeCenterY) * 0.85;
               }
 
-              normTopHeadY = Math.max(0.01, normEyeCenterY - (normChinY - normEyeCenterY) * 1.10);
+              const eyeToChin = normChinY - normEyeCenterY;
+              const foreheadY = normEyeCenterY - 0.70 * eyeToChin;
+              normTopHeadY = Math.max(0.01, normEyeCenterY - 1.08 * eyeToChin);
+
               if (maskData && mWidth > 0 && mHeight > 0) {
                 const scanCenterX = Math.floor(normFaceCenterX * mWidth);
                 const scanHalfWidth = Math.max(4, Math.floor((eyeDistPx / sourceWidth) * mWidth * 0.9));
                 const startX = Math.max(0, scanCenterX - scanHalfWidth);
                 const endX = Math.min(mWidth - 1, scanCenterX + scanHalfWidth);
 
-                const maxYToScan = Math.min(mHeight - 1, Math.floor(normEyeCenterY * mHeight));
-                for (let y = 0; y < maxYToScan; y++) {
+                const minScanY = Math.max(0, Math.floor((normEyeCenterY - 1.25 * eyeToChin) * mHeight));
+                const maxScanY = Math.min(mHeight - 1, Math.floor(foreheadY * mHeight));
+
+                for (let y = maxScanY; y >= minScanY; y--) {
                   let countInRow = 0;
                   for (let x = startX; x <= endX; x++) {
-                    if (maskData[y * mWidth + x] > 0.40) {
+                    if (maskData[y * mWidth + x] > 0.45) {
                       countInRow++;
-                      if (countInRow >= 2) {
+                      if (countInRow >= 3) {
                         normTopHeadY = y / mHeight;
                         break;
                       }
                     }
                   }
-                  if (countInRow >= 2) break;
                 }
               }
 
@@ -404,8 +416,8 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
         const standardCanvasHeight = 1800;
         const standardCanvasWidth = Math.round(standardCanvasHeight * preset.aspectRatio);
 
-        // Optimal head height on passport canvas: ~62% of canvas height (1116px) for ideal template framing
-        const targetHeadHeightPercent = 0.62;
+        // Optimal head height on passport canvas derived from preset overlay specs (chinPercent - headTopPercent)
+        const targetHeadHeightPercent = (preset.overlaySpecs.chinPercent - preset.overlaySpecs.headTopPercent) / 100;
         const targetHeadHeightPx = standardCanvasHeight * targetHeadHeightPercent;
 
         const baseScale = Math.min(standardCanvasWidth / img.width, standardCanvasHeight / img.height);
@@ -413,16 +425,19 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
         
         const calculatedZoom = headScaleNeeded / baseScale;
         const isPortrait = img.height >= img.width;
-        const maxAllowedZoom = isPortrait ? 2.5 : 3.0;
+        const maxAllowedZoom = isPortrait ? 3.5 : 4.0;
         const minAllowedZoom = isPortrait ? 0.50 : 0.40;
         const rawZoom = Math.max(minAllowedZoom, Math.min(maxAllowedZoom, calculatedZoom));
         const zoom = isFinite(rawZoom) && rawZoom > 0 ? rawZoom : 1.0;
         const finalScale = baseScale * zoom;
 
-        // Align Eye Line EXACTLY to Preset Eye Line (42%) for optimum passport positioning
-        const targetEyeLinePxOnCanvas = (preset.overlaySpecs.eyeLinePercent / 100) * standardCanvasHeight;
+        // Center head vertically between Top Head guide line and Chin guide line for exact template framing
+        const targetHeadCenterPercent = (preset.overlaySpecs.headTopPercent + preset.overlaySpecs.chinPercent) / 2;
+        const targetHeadCenterPxOnCanvas = (targetHeadCenterPercent / 100) * standardCanvasHeight;
+        const normHeadCenterY = (normTopHeadY + normChinY) / 2;
+
         const rawOffsetX = (0.5 - normFaceCenterX) * img.width * finalScale;
-        const rawOffsetY = targetEyeLinePxOnCanvas - (standardCanvasHeight / 2) - (normEyeCenterY - 0.5) * img.height * finalScale;
+        const rawOffsetY = targetHeadCenterPxOnCanvas - (standardCanvasHeight / 2) - (normHeadCenterY - 0.5) * img.height * finalScale;
 
         const targetOffsetX = Math.max(-1000, Math.min(1000, isFinite(rawOffsetX) ? rawOffsetX : 0));
         const targetOffsetY = Math.max(-1000, Math.min(1000, isFinite(rawOffsetY) ? rawOffsetY : 0));
