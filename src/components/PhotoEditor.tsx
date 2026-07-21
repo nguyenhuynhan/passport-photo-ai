@@ -57,6 +57,10 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
   const [bgColor, setBgColor] = useState<string>(preset.defaultBgColor);
   const [removeBg, setRemoveBg] = useState<boolean>(true);
   const [showGuide, setShowGuide] = useState<boolean>(true);
+
+  // Background removal refinement tuning states
+  const [edgeFeather, setEdgeFeather] = useState<number>(3); // 1 to 10 (feather / smoothness radius)
+  const [bgSensitivity, setBgSensitivity] = useState<number>(50); // 0 to 100 (threshold noise cut sensitivity)
   
   // AI processing states
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
@@ -407,6 +411,7 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
     ctx.drawImage(originalImg, 0, 0, workWidth, workHeight);
 
     // Apply segmentation mask if enabled
+    // Apply segmentation mask with Multi-Layer Refinement Pipeline if enabled
     if (removeBg && segmentationMask && maskWidth > 0 && maskHeight > 0) {
       try {
         const imgData = ctx.getImageData(0, 0, workWidth, workHeight);
@@ -423,16 +428,60 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
           bgB = parseInt(hex.substring(4, 6), 16);
         }
 
-        // Blend pixels
+        // Layer 2 Parameters: Non-linear Hermite S-Curve & Noise Cut thresholds
+        const lowCut = 0.15 + (bgSensitivity / 100) * 0.28; // 0.15..0.43 (default 50 -> 0.29)
+        const bandWidth = 0.15 + (edgeFeather / 10) * 0.35; // 0.185..0.50 (default 3 -> 0.255)
+        const highCut = Math.min(0.95, lowCut + bandWidth);
+        const cutSpan = Math.max(0.01, highCut - lowCut);
+
+        // Helper for Layer 1: Bilinear Sub-Pixel Interpolation of the mask
+        const sampleMaskBilinear = (u: number, v: number): number => {
+          const mx = Math.max(0, Math.min(maskWidth - 1, u * (maskWidth - 1)));
+          const my = Math.max(0, Math.min(maskHeight - 1, v * (maskHeight - 1)));
+
+          const x0 = Math.floor(mx);
+          const y0 = Math.floor(my);
+          const x1 = Math.min(x0 + 1, maskWidth - 1);
+          const y1 = Math.min(y0 + 1, maskHeight - 1);
+          const dx = mx - x0;
+          const dy = my - y0;
+
+          const v00 = segmentationMask[y0 * maskWidth + x0] || 0;
+          const v10 = segmentationMask[y0 * maskWidth + x1] || 0;
+          const v01 = segmentationMask[y1 * maskWidth + x0] || 0;
+          const v11 = segmentationMask[y1 * maskWidth + x1] || 0;
+
+          const top = v00 + dx * (v10 - v00);
+          const bottom = v01 + dx * (v11 - v01);
+          return top + dy * (bottom - top);
+        };
+
+        // Blend pixels with multi-layer mask refinement
         for (let y = 0; y < workHeight; y++) {
+          const v = y / (workHeight - 1 || 1);
+
           for (let x = 0; x < workWidth; x++) {
+            const u = x / (workWidth - 1 || 1);
             const pixelIndex = (y * workWidth + x) * 4;
 
-            const maskX = Math.floor((x / workWidth) * maskWidth);
-            const maskY = Math.floor((y / workHeight) * maskHeight);
-            const maskIndex = maskY * maskWidth + maskX;
+            // Layer 1: Bilinear Sub-pixel mask sample
+            let rawConfidence = sampleMaskBilinear(u, v);
 
-            const confidence = segmentationMask[maskIndex] || 0;
+            // Layer 3: Spatial ROI Attenuation (Clean up top corners if low confidence)
+            if ((v < 0.15 && (u < 0.2 || u > 0.8)) && rawConfidence < 0.55) {
+              rawConfidence *= Math.max(0, (v / 0.15));
+            }
+
+            // Layer 2: Hermite Smoothstep S-Curve thresholding
+            let confidence = 0;
+            if (rawConfidence <= lowCut) {
+              confidence = 0;
+            } else if (rawConfidence >= highCut) {
+              confidence = 1;
+            } else {
+              const t = (rawConfidence - lowCut) / cutSpan;
+              confidence = t * t * (3 - 2 * t);
+            }
 
             const origR = data[pixelIndex];
             const origG = data[pixelIndex + 1];
@@ -461,7 +510,7 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
     // Redraw the main canvas
     drawMainCanvas();
 
-  }, [loadedImg, imageSrc, removeBg, segmentationMask, bgColor]);
+  }, [loadedImg, imageSrc, removeBg, segmentationMask, bgColor, edgeFeather, bgSensitivity]);
 
   // Redraw when adjustments change
   useEffect(() => {
@@ -726,24 +775,61 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
           </div>
 
           {removeBg && (
-            <div className="space-y-2">
-              <p className="text-[11px] text-slate-400">Chọn màu phông nền hộ chiếu/visa đúng yêu cầu:</p>
-              <div className="flex flex-wrap gap-2">
-                {BG_COLOR_OPTIONS.map((opt) => (
-                  <button
-                    id={`bg_color_${opt.value.replace('#', '')}_btn`}
-                    key={opt.value}
-                    onClick={() => setBgColor(opt.value)}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border cursor-pointer select-none transition ${
-                      bgColor === opt.value
-                        ? 'ring-2 ring-teal-400 border-teal-500'
-                        : 'hover:bg-slate-800 border-slate-700'
-                    } ${opt.label}`}
-                  >
-                    {bgColor === opt.value && <Check className="w-3.5 h-3.5" />}
-                    <span>{opt.name.split(' (')[0]}</span>
-                  </button>
-                ))}
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <p className="text-[11px] text-slate-400">Chọn màu phông nền hộ chiếu/visa đúng yêu cầu:</p>
+                <div className="flex flex-wrap gap-2">
+                  {BG_COLOR_OPTIONS.map((opt) => (
+                    <button
+                      id={`bg_color_${opt.value.replace('#', '')}_btn`}
+                      key={opt.value}
+                      onClick={() => setBgColor(opt.value)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border cursor-pointer select-none transition ${
+                        bgColor === opt.value
+                          ? 'ring-2 ring-teal-400 border-teal-500'
+                          : 'hover:bg-slate-800 border-slate-700'
+                      } ${opt.label}`}
+                    >
+                      {bgColor === opt.value && <Check className="w-3.5 h-3.5" />}
+                      <span>{opt.name.split(' (')[0]}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Fine-tuning Background Refinement Sliders */}
+              <div className="pt-3 border-t border-slate-800/80 space-y-3">
+                <div className="space-y-1.5">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-300 font-medium">{t.edgeThresholdLabel}</span>
+                    <span className="text-teal-400 font-mono font-semibold">{bgSensitivity}%</span>
+                  </div>
+                  <input
+                    id="bg_sensitivity_range"
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={bgSensitivity}
+                    onChange={(e) => setBgSensitivity(parseInt(e.target.value))}
+                    className="w-full accent-teal-400 h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-300 font-medium">{t.edgeFeatherLabel}</span>
+                    <span className="text-teal-400 font-mono font-semibold">{edgeFeather}px</span>
+                  </div>
+                  <input
+                    id="edge_feather_range"
+                    type="range"
+                    min="1"
+                    max="10"
+                    value={edgeFeather}
+                    onChange={(e) => setEdgeFeather(parseInt(e.target.value))}
+                    className="w-full accent-teal-400 h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer"
+                  />
+                </div>
               </div>
             </div>
           )}

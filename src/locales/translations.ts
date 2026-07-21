@@ -63,6 +63,8 @@ export interface Translations {
   aiProcessingStep3: string;
   nationalStandardLabel: string;
   removeBgToggle: string;
+  edgeFeatherLabel: string;
+  edgeThresholdLabel: string;
   bgColorLabel: string;
   lightAndColorLabel: string;
   zoom: string;
@@ -181,6 +183,8 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     aiProcessingStep3: 'Căn chỉnh tỷ lệ khung hình chuẩn hộ chiếu...',
     nationalStandardLabel: 'Tiêu chuẩn quốc gia:',
     removeBgToggle: 'Tách nền phía sau bằng AI',
+    edgeFeatherLabel: 'Độ mịn viền (Feathering)',
+    edgeThresholdLabel: 'Lọc nhiễu nền (Sensitivity)',
     bgColorLabel: 'Màu phông nền thay thế:',
     lightAndColorLabel: 'Điều chỉnh ánh sáng & màu sắc',
     zoom: 'Thu phóng (Zoom)',
@@ -292,6 +296,8 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     aiProcessingStep3: 'Aligning passport frame scale...',
     nationalStandardLabel: 'National Standard:',
     removeBgToggle: 'AI Background Removal',
+    edgeFeatherLabel: 'Edge Smoothness (Feathering)',
+    edgeThresholdLabel: 'Noise Filter (Sensitivity)',
     bgColorLabel: 'Replacement Background Color:',
     lightAndColorLabel: 'Lighting & Color Adjustments',
     zoom: 'Zoom',
@@ -403,6 +409,8 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     aiProcessingStep3: '正在调整护照标准比例...',
     nationalStandardLabel: '国家/地区标准：',
     removeBgToggle: 'AI 智能背景替换',
+    edgeFeatherLabel: '边缘平滑度 (Feathering)',
+    edgeThresholdLabel: '背景去噪 (Sensitivity)',
     bgColorLabel: '替换背景颜色：',
     lightAndColorLabel: '光照与色彩调节',
     zoom: '缩放 (Zoom)',
