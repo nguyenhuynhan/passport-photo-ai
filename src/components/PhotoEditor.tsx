@@ -411,8 +411,10 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
         const baseScale = Math.min(standardCanvasWidth / img.width, standardCanvasHeight / img.height);
         const headScaleNeeded = targetHeadHeightPx / (normFullHeadHeight * img.height);
         
-        const calculatedZoom = headScaleNeeded / baseScale;
-        const rawZoom = Math.max(0.6, Math.min(2.5, calculatedZoom));
+        const isPortrait = img.height >= img.width;
+        const maxAllowedZoom = isPortrait ? 1.25 : 2.0;
+        const minAllowedZoom = isPortrait ? 0.85 : 0.60;
+        const rawZoom = Math.max(minAllowedZoom, Math.min(maxAllowedZoom, calculatedZoom));
         const zoom = isFinite(rawZoom) && rawZoom > 0 ? rawZoom : 1.0;
         const finalScale = baseScale * zoom;
 
