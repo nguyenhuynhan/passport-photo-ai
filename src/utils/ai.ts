@@ -3,10 +3,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { FilesetResolver, FaceDetector, ImageSegmenter } from '@mediapipe/tasks-vision';
+import { FilesetResolver, FaceDetector, FaceLandmarker, ImageSegmenter } from '@mediapipe/tasks-vision';
 
 let visionTasks: any = null;
 let faceDetector: FaceDetector | null = null;
+let faceLandmarker: FaceLandmarker | null = null;
 let imageSegmenter: ImageSegmenter | null = null;
 let initPromise: Promise<void> | null = null;
 
@@ -23,6 +24,7 @@ export async function initModels(onProgress?: (status: string) => void): Promise
       visionTasks = await FilesetResolver.forVisionTasks(wasmPath);
 
       const faceModelPath = `${window.location.origin}/models/blaze_face_short_range.tflite`;
+      const landmarkerModelPath = `${window.location.origin}/models/face_landmarker.task`;
       const selfieModelPath = `${window.location.origin}/models/selfie_segmenter.tflite`;
 
       onProgress?.('Đang tải mô hình Nhận diện khuôn mặt...');
@@ -45,6 +47,32 @@ export async function initModels(onProgress?: (status: string) => void): Promise
           runningMode: 'IMAGE',
           minDetectionConfidence: 0.15,
         });
+      }
+
+      onProgress?.('Đang tải mô hình Lưới 3D 478 Điểm (FaceLandmarker)...');
+      try {
+        faceLandmarker = await FaceLandmarker.createFromOptions(visionTasks, {
+          baseOptions: {
+            modelAssetPath: landmarkerModelPath,
+            delegate: 'GPU',
+          },
+          runningMode: 'IMAGE',
+          numFaces: 1,
+        });
+      } catch (gpuError) {
+        console.warn('Không khởi tạo được GPU delegate cho FaceLandmarker, chuyển sang CPU:', gpuError);
+        try {
+          faceLandmarker = await FaceLandmarker.createFromOptions(visionTasks, {
+            baseOptions: {
+              modelAssetPath: landmarkerModelPath,
+              delegate: 'CPU',
+            },
+            runningMode: 'IMAGE',
+            numFaces: 1,
+          });
+        } catch (e) {
+          console.warn('Không thể khởi tạo FaceLandmarker:', e);
+        }
       }
 
       onProgress?.('Đang tải mô hình Tách nền Selfie...');
@@ -104,7 +132,6 @@ function ensureCanvasSource(imageElement: HTMLImageElement | HTMLVideoElement | 
   const canvas = document.createElement('canvas');
   const dims = getElementDimensions(imageElement);
   
-  // Scale down if image is huge (> 1280px) to make face detection much faster and more accurate for BlazeFace
   const maxDim = Math.max(dims.width, dims.height);
   const scale = maxDim > 1280 ? 1280 / maxDim : 1;
   
@@ -132,7 +159,6 @@ export async function detectFace(imageElement: HTMLImageElement | HTMLVideoEleme
     const sourceWidth = dims.width;
     const sourceHeight = dims.height;
 
-    // Sort detections by confidence * box area to ensure primary face comes first
     if (faceResult && faceResult.detections && faceResult.detections.length > 1) {
       faceResult.detections.sort((a, b) => {
         const scoreA = (a.categories && a.categories[0]?.score) || 0.5;
@@ -158,6 +184,31 @@ export async function detectFace(imageElement: HTMLImageElement | HTMLVideoEleme
   }
 }
 
+export async function detectFaceLandmarks(imageElement: HTMLImageElement | HTMLVideoElement | HTMLCanvasElement) {
+  if (!faceLandmarker) {
+    try {
+      await initModels();
+    } catch (e) {
+      console.warn('FaceLandmarker init skipped:', e);
+    }
+  }
+  if (!faceLandmarker) return null;
+
+  try {
+    const source = ensureCanvasSource(imageElement);
+    const result = faceLandmarker.detect(source);
+    const dims = getElementDimensions(source);
+    return {
+      landmarksResult: result,
+      sourceWidth: dims.width,
+      sourceHeight: dims.height,
+    };
+  } catch (err) {
+    console.warn('Lỗi khi gọi MediaPipe detectFaceLandmarks:', err);
+    return null;
+  }
+}
+
 export async function segmentSelfie(imageElement: HTMLImageElement | HTMLVideoElement | HTMLCanvasElement) {
   if (!imageSegmenter) {
     await initModels();
@@ -173,5 +224,3 @@ export async function segmentSelfie(imageElement: HTMLImageElement | HTMLVideoEl
     return null;
   }
 }
-
-

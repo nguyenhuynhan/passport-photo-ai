@@ -9,7 +9,7 @@ import {
   Sparkles, RefreshCw, Scissors, Compass, Sun, Eye, EyeOff
 } from 'lucide-react';
 import { PhotoPreset, PassportStandard, ImageAdjustments, DEFAULT_ADJUSTMENTS, BG_COLOR_OPTIONS } from '../types';
-import { detectFace, segmentSelfie } from '../utils/ai';
+import { detectFace, detectFaceLandmarks, segmentSelfie } from '../utils/ai';
 import { Language, TRANSLATIONS } from '../locales/translations';
 
 interface PhotoEditorProps {
@@ -204,85 +204,44 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
 
       try {
         setAiLog(t.aiProcessingStep3);
-        const detectRes = await detectFace(img);
-        const { faceResult, sourceWidth, sourceHeight } = detectRes;
 
-        if (faceResult && faceResult.detections && faceResult.detections.length > 0) {
-          const detection = faceResult.detections[0];
-          const box = detection.boundingBox;
+        // 1. Primary High Precision: MediaPipe 478 3D Mesh FaceLandmarker (Pupil Iris & Chin Tip Detection)
+        const landmarkerRes = await detectFaceLandmarks(img);
+        if (landmarkerRes && landmarkerRes.landmarksResult && landmarkerRes.landmarksResult.faceLandmarks.length > 0) {
+          const lms = landmarkerRes.landmarksResult.faceLandmarks[0];
+          const sW = landmarkerRes.sourceWidth;
+          const sH = landmarkerRes.sourceHeight;
 
-          if (box && sourceWidth > 0 && sourceHeight > 0) {
+          if (lms && lms.length >= 468 && sW > 0 && sH > 0) {
             faceFound = true;
 
-            const getNormX = (kp: { x: number }) => (kp.x > 1.1 ? kp.x / sourceWidth : kp.x);
-            const getNormY = (kp: { y: number }) => (kp.y > 1.1 ? kp.y / sourceHeight : kp.y);
+            // Pupil Iris Centers: 468 = Right pupil, 473 = Left pupil
+            const rightPupil = lms[468] || lms[33];
+            const leftPupil = lms[473] || lms[263];
 
-            let normRightEyeX = 0, normRightEyeY = 0;
-            let normLeftEyeX = 0, normLeftEyeY = 0;
-            let normMouthY = 0;
-            let hasKeypoints = false;
+            normFaceCenterX = (rightPupil.x + leftPupil.x) / 2;
+            normEyeCenterY = (rightPupil.y + leftPupil.y) / 2;
 
-            if (detection.keypoints && detection.keypoints.length >= 2) {
-              hasKeypoints = true;
-              normRightEyeX = getNormX(detection.keypoints[0]);
-              normRightEyeY = getNormY(detection.keypoints[0]);
-              normLeftEyeX = getNormX(detection.keypoints[1]);
-              normLeftEyeY = getNormY(detection.keypoints[1]);
+            // Chin Tip: Landmark 152 is EXACT bottom tip of chin
+            const chinTip = lms[152];
+            let normChinY = chinTip ? chinTip.y : normEyeCenterY + 0.30;
 
-              if (detection.keypoints.length >= 4) {
-                normMouthY = getNormY(detection.keypoints[3]);
-              }
-            }
+            // Calculate eye rotation angle
+            const dxPx = (leftPupil.x - rightPupil.x) * sW;
+            const dyPx = (leftPupil.y - rightPupil.y) * sH;
+            const eyeDistPx = Math.hypot(dxPx, dyPx);
+            const rawAngle = -Math.atan2(dyPx, dxPx) * (180 / Math.PI);
+            rotationAngle = Math.max(-15, Math.min(15, rawAngle));
 
-            // MediaPipe BoundingBox dimensions in pixel coordinates
-            const boxNormOriginX = box.originX / sourceWidth;
-            const boxNormOriginY = box.originY / sourceHeight;
-            const boxNormWidth = box.width / sourceWidth;
-            const boxNormHeight = box.height / sourceHeight;
-
-            // Calculate eye distance and rotation angle robustly
-            const minEyeX = Math.min(normRightEyeX, normLeftEyeX);
-            const maxEyeX = Math.max(normRightEyeX, normLeftEyeX);
-
-            let eyeDistPx = 0;
-            if (hasKeypoints && maxEyeX > minEyeX) {
-              const dxPx = (normLeftEyeX - normRightEyeX) * sourceWidth;
-              const dyPx = (normLeftEyeY - normRightEyeY) * sourceHeight;
-              eyeDistPx = Math.hypot(dxPx, dyPx);
-              const rawAngle = -Math.atan2(dyPx, dxPx) * (180 / Math.PI);
-              rotationAngle = Math.max(-15, Math.min(15, rawAngle));
-            } else {
-              const boxWidthPx = boxNormWidth * sourceWidth;
-              eyeDistPx = boxWidthPx * 0.45;
-            }
-
-            normFaceCenterX = hasKeypoints && maxEyeX > 0
-              ? (normRightEyeX + normLeftEyeX) / 2 
-              : boxNormOriginX + boxNormWidth / 2;
-
-            normEyeCenterY = hasKeypoints && (normRightEyeY > 0 || normLeftEyeY > 0)
-              ? (normRightEyeY + normLeftEyeY) / 2 
-              : boxNormOriginY + boxNormHeight * 0.38;
-
-            normFaceCenterX = Math.max(0.05, Math.min(0.95, normFaceCenterX));
-            normEyeCenterY = Math.max(0.05, Math.min(0.95, normEyeCenterY));
-
-            // DYNAMIC AI SEGMENTATION & KEYPOINT DETECTION (NO HARDCODED MULTIPLIERS)
-            // 1. Detect Chin Y position directly from mouth & eye landmarks
-            let normChinY = normEyeCenterY + 1.8 * (eyeDistPx / sourceHeight);
-            if (normMouthY > normEyeCenterY) {
-              normChinY = normMouthY + (normMouthY - normEyeCenterY) * 0.95;
-            }
-
-            // 2. Detect AI Segmentation Mask Top (Exact top of hair/head)
-            normTopHeadY = Math.max(0.01, normEyeCenterY - (normChinY - normEyeCenterY) * 1.10);
+            // Detect top of head from hair mask or forehead landmark 10
+            normTopHeadY = Math.max(0.01, normEyeCenterY - (normChinY - normEyeCenterY) * 1.05);
             if (maskData && mWidth > 0 && mHeight > 0) {
               const scanCenterX = Math.floor(normFaceCenterX * mWidth);
-              const scanHalfWidth = Math.max(4, Math.floor((eyeDistPx / sourceWidth) * mWidth * 0.9));
+              const scanHalfWidth = Math.max(4, Math.floor((eyeDistPx / sW) * mWidth * 0.9));
               const startX = Math.max(0, scanCenterX - scanHalfWidth);
               const endX = Math.min(mWidth - 1, scanCenterX + scanHalfWidth);
-
               const maxYToScan = Math.min(mHeight - 1, Math.floor(normEyeCenterY * mHeight));
+
               for (let y = 0; y < maxYToScan; y++) {
                 let countInRow = 0;
                 for (let x = startX; x <= endX; x++) {
@@ -298,8 +257,103 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
               }
             }
 
-            // 3. Measure Full Head Height dynamically from AI Mask & Landmarks
             normFullHeadHeight = Math.max(0.20, normChinY - normTopHeadY);
+          }
+        }
+
+        // 2. Secondary Fallback: FaceDetector (6 keypoints) if FaceLandmarker did not return 478 mesh
+        if (!faceFound) {
+          const detectRes = await detectFace(img);
+          const { faceResult, sourceWidth, sourceHeight } = detectRes;
+
+          if (faceResult && faceResult.detections && faceResult.detections.length > 0) {
+            const detection = faceResult.detections[0];
+            const box = detection.boundingBox;
+
+            if (box && sourceWidth > 0 && sourceHeight > 0) {
+              faceFound = true;
+
+              const getNormX = (kp: { x: number }) => (kp.x > 1.1 ? kp.x / sourceWidth : kp.x);
+              const getNormY = (kp: { y: number }) => (kp.y > 1.1 ? kp.y / sourceHeight : kp.y);
+
+              let normRightEyeX = 0, normRightEyeY = 0;
+              let normLeftEyeX = 0, normLeftEyeY = 0;
+              let normMouthY = 0;
+              let hasKeypoints = false;
+
+              if (detection.keypoints && detection.keypoints.length >= 2) {
+                hasKeypoints = true;
+                normRightEyeX = getNormX(detection.keypoints[0]);
+                normRightEyeY = getNormY(detection.keypoints[0]);
+                normLeftEyeX = getNormX(detection.keypoints[1]);
+                normLeftEyeY = getNormY(detection.keypoints[1]);
+
+                if (detection.keypoints.length >= 4) {
+                  normMouthY = getNormY(detection.keypoints[3]);
+                }
+              }
+
+              const boxNormOriginX = box.originX / sourceWidth;
+              const boxNormOriginY = box.originY / sourceHeight;
+              const boxNormWidth = box.width / sourceWidth;
+              const boxNormHeight = box.height / sourceHeight;
+
+              const minEyeX = Math.min(normRightEyeX, normLeftEyeX);
+              const maxEyeX = Math.max(normRightEyeX, normLeftEyeX);
+
+              let eyeDistPx = 0;
+              if (hasKeypoints && maxEyeX > minEyeX) {
+                const dxPx = (normLeftEyeX - normRightEyeX) * sourceWidth;
+                const dyPx = (normLeftEyeY - normRightEyeY) * sourceHeight;
+                eyeDistPx = Math.hypot(dxPx, dyPx);
+                const rawAngle = -Math.atan2(dyPx, dxPx) * (180 / Math.PI);
+                rotationAngle = Math.max(-15, Math.min(15, rawAngle));
+              } else {
+                const boxWidthPx = boxNormWidth * sourceWidth;
+                eyeDistPx = boxWidthPx * 0.45;
+              }
+
+              normFaceCenterX = hasKeypoints && maxEyeX > 0
+                ? (normRightEyeX + normLeftEyeX) / 2 
+                : boxNormOriginX + boxNormWidth / 2;
+
+              normEyeCenterY = hasKeypoints && (normRightEyeY > 0 || normLeftEyeY > 0)
+                ? (normRightEyeY + normLeftEyeY) / 2 
+                : boxNormOriginY + boxNormHeight * 0.38;
+
+              normFaceCenterX = Math.max(0.05, Math.min(0.95, normFaceCenterX));
+              normEyeCenterY = Math.max(0.05, Math.min(0.95, normEyeCenterY));
+
+              let normChinY = normEyeCenterY + 1.8 * (eyeDistPx / sourceHeight);
+              if (normMouthY > normEyeCenterY) {
+                normChinY = normMouthY + (normMouthY - normEyeCenterY) * 0.95;
+              }
+
+              normTopHeadY = Math.max(0.01, normEyeCenterY - (normChinY - normEyeCenterY) * 1.10);
+              if (maskData && mWidth > 0 && mHeight > 0) {
+                const scanCenterX = Math.floor(normFaceCenterX * mWidth);
+                const scanHalfWidth = Math.max(4, Math.floor((eyeDistPx / sourceWidth) * mWidth * 0.9));
+                const startX = Math.max(0, scanCenterX - scanHalfWidth);
+                const endX = Math.min(mWidth - 1, scanCenterX + scanHalfWidth);
+
+                const maxYToScan = Math.min(mHeight - 1, Math.floor(normEyeCenterY * mHeight));
+                for (let y = 0; y < maxYToScan; y++) {
+                  let countInRow = 0;
+                  for (let x = startX; x <= endX; x++) {
+                    if (maskData[y * mWidth + x] > 0.40) {
+                      countInRow++;
+                      if (countInRow >= 2) {
+                        normTopHeadY = y / mHeight;
+                        break;
+                      }
+                    }
+                  }
+                  if (countInRow >= 2) break;
+                }
+              }
+
+              normFullHeadHeight = Math.max(0.20, normChinY - normTopHeadY);
+            }
           }
         }
       } catch (faceErr) {
