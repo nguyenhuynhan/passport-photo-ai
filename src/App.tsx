@@ -43,6 +43,37 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [step]);
 
+  // Expose automation test API on window & support ?autotest=true query parameter
+  useEffect(() => {
+    const sampleUrl = 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=500&auto=format&fit=crop&q=80';
+    
+    (window as any).passportTest = {
+      setStep: (s: 1 | 2 | 3) => setStep(s),
+      selectPhoto: (src: string) => {
+        setImageSrc(src);
+        setStep(2);
+      },
+      selectSamplePhoto: () => {
+        setImageSrc(sampleUrl);
+        setStep(2);
+      },
+      getStep: () => step,
+      getImageSrc: () => imageSrc,
+      getCroppedPhoto: () => croppedPhoto,
+      getPreset: () => selectedPreset,
+      setPreset: (p: PhotoPreset) => setSelectedPreset(p),
+      resetAll: () => handleResetAll(),
+    };
+
+    // Auto-test query param handler
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('autotest') === 'true' || params.get('autoTest') === 'true') {
+      console.log('[AUTOMATION TEST] Auto-selecting sample photo and transitioning to Step 2...');
+      setImageSrc(sampleUrl);
+      setStep(2);
+    }
+  }, []);
+
   // Pre-load models in background on mount
   useEffect(() => {
     const preLoad = async () => {

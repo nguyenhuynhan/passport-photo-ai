@@ -71,8 +71,25 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
   const [imgHeight, setImgHeight] = useState<number>(0);
   const [loadedImg, setLoadedImg] = useState<HTMLImageElement | null>(null);
 
+  // Expose Editor Automation Test API
+  useEffect(() => {
+    (window as any).passportEditorTest = {
+      getAdjustments: () => adjustments,
+      setAdjustments: (adj: Partial<ImageAdjustments>) => setAdjustments((prev) => ({ ...prev, ...adj })),
+      isProcessing: () => isProcessing,
+      getAiLog: () => aiLog,
+      isFaceDetected: () => faceDetected,
+      restoreInitialAlign: () => restoreInitialAlign(),
+      getBgColor: () => bgColor,
+      setBgColor: (col: string) => setBgColor(col),
+      isRemoveBg: () => removeBg,
+      setRemoveBg: (val: boolean) => setRemoveBg(val),
+    };
+  }, [adjustments, isProcessing, aiLog, faceDetected, bgColor, removeBg]);
+
   // Helper to emit debounced cropped photo to parent state
   const emitDebouncedCropChange = () => {
+    if (isProcessing) return; // Prevent emitting unaligned intermediate frames
     if (cropTimerRef.current) {
       clearTimeout(cropTimerRef.current);
     }
@@ -89,9 +106,13 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
     }, 150);
   };
 
-  // Load preset defaults when preset changes
+  // Load preset defaults when preset changes & re-align
   useEffect(() => {
     setBgColor(preset.defaultBgColor);
+    const currentImg = loadedImg || originalImageRef.current;
+    if (currentImg && currentImg.width && currentImg.height) {
+      runAIProcessing(currentImg);
+    }
   }, [preset]);
 
   // Load original image and run AI on mount/change
@@ -213,29 +234,33 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
               }
             }
 
-            // Calculate pixel eye distance and rotation angle
+            // MediaPipe BoundingBox dimensions in pixel coordinates
+            const boxNormOriginX = box.originX / sourceWidth;
+            const boxNormOriginY = box.originY / sourceHeight;
+            const boxNormWidth = box.width / sourceWidth;
+            const boxNormHeight = box.height / sourceHeight;
+
+            // Calculate eye distance and rotation angle robustly
+            const minEyeX = Math.min(normRightEyeX, normLeftEyeX);
+            const maxEyeX = Math.max(normRightEyeX, normLeftEyeX);
+
             let eyeDistPx = 0;
-            if (hasKeypoints && normLeftEyeX > normRightEyeX) {
+            if (hasKeypoints && maxEyeX > minEyeX) {
               const dxPx = (normLeftEyeX - normRightEyeX) * sourceWidth;
               const dyPx = (normLeftEyeY - normRightEyeY) * sourceHeight;
               eyeDistPx = Math.hypot(dxPx, dyPx);
               const rawAngle = -Math.atan2(dyPx, dxPx) * (180 / Math.PI);
               rotationAngle = Math.max(-15, Math.min(15, rawAngle));
             } else {
-              const boxWidthPx = box.width > 1.1 ? box.width : box.width * sourceWidth;
+              const boxWidthPx = boxNormWidth * sourceWidth;
               eyeDistPx = boxWidthPx * 0.45;
             }
 
-            const boxNormOriginX = box.originX > 1.1 ? box.originX / sourceWidth : box.originX;
-            const boxNormOriginY = box.originY > 1.1 ? box.originY / sourceHeight : box.originY;
-            const boxNormWidth = box.width > 1.1 ? box.width / sourceWidth : box.width;
-            const boxNormHeight = box.height > 1.1 ? box.height / sourceHeight : box.height;
-
-            normFaceCenterX = hasKeypoints && normLeftEyeX > 0
+            normFaceCenterX = hasKeypoints && maxEyeX > 0
               ? (normRightEyeX + normLeftEyeX) / 2 
               : boxNormOriginX + boxNormWidth / 2;
 
-            normEyeCenterY = hasKeypoints && normRightEyeY > 0
+            normEyeCenterY = hasKeypoints && (normRightEyeY > 0 || normLeftEyeY > 0)
               ? (normRightEyeY + normLeftEyeY) / 2 
               : boxNormOriginY + boxNormHeight * 0.38;
 
@@ -244,7 +269,7 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
 
             const eyeDistNorm = (eyeDistPx / sourceHeight) > 0 ? (eyeDistPx / sourceHeight) : 0.15;
 
-            // Geometric top of head: top of skull is ~1.30 * eyeDistPx above eyes in pixel space
+            // Geometric top of head: top of skull is ~1.30 * eyeDistNorm above eyes
             const geomTopHeadY = Math.max(0.005, normEyeCenterY - 1.30 * eyeDistNorm);
 
             // Find top of head using segmentation mask if available within realistic anatomical window
@@ -255,16 +280,21 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
               const startX = Math.max(0, scanCenterX - scanHalfWidth);
               const endX = Math.min(mWidth - 1, scanCenterX + scanHalfWidth);
 
-              const minYToScan = Math.max(0, Math.floor((normEyeCenterY - 1.75 * eyeDistNorm) * mHeight));
-              const maxYToScan = Math.min(mHeight - 1, Math.floor((normEyeCenterY - 0.85 * eyeDistNorm) * mHeight));
+              const minYToScan = Math.max(0, Math.floor((normEyeCenterY - 1.55 * eyeDistNorm) * mHeight));
+              const maxYToScan = Math.min(mHeight - 1, Math.floor((normEyeCenterY - 1.05 * eyeDistNorm) * mHeight));
 
               let foundMaskTop = false;
+              // Require multiple consecutive positive mask pixels to avoid noise
               for (let y = minYToScan; y <= maxYToScan; y++) {
+                let countInRow = 0;
                 for (let x = startX; x <= endX; x++) {
-                  if (maskData[y * mWidth + x] > 0.35) {
-                    normTopHeadY = y / mHeight;
-                    foundMaskTop = true;
-                    break;
+                  if (maskData[y * mWidth + x] > 0.40) {
+                    countInRow++;
+                    if (countInRow >= 2) {
+                      normTopHeadY = y / mHeight;
+                      foundMaskTop = true;
+                      break;
+                    }
                   }
                 }
                 if (foundMaskTop) break;
@@ -274,16 +304,16 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
             // Chin position calculation
             let normChinY = 0;
             if (normMouthY > normEyeCenterY) {
-              normChinY = normMouthY + 0.75 * eyeDistNorm;
+              normChinY = normMouthY + 0.65 * eyeDistNorm;
             } else {
-              normChinY = normEyeCenterY + 1.55 * eyeDistNorm;
+              normChinY = normEyeCenterY + 1.45 * eyeDistNorm;
             }
-            normChinY = Math.min(0.995, Math.max(normEyeCenterY + 1.2 * eyeDistNorm, normChinY));
+            normChinY = Math.min(0.995, Math.max(normEyeCenterY + 1.20 * eyeDistNorm, normChinY));
 
-            // Total head height in normalized Y units constrained to realistic anatomical range [2.0, 3.4] * eyeDistNorm
+            // Total head height in normalized Y units constrained to realistic anatomical range [2.2, 3.2] * eyeDistNorm
             let rawHeadHeight = normChinY - normTopHeadY;
-            if (rawHeadHeight < 2.0 * eyeDistNorm || rawHeadHeight > 3.4 * eyeDistNorm) {
-              rawHeadHeight = 2.85 * eyeDistNorm;
+            if (rawHeadHeight < 2.2 * eyeDistNorm || rawHeadHeight > 3.2 * eyeDistNorm) {
+              rawHeadHeight = 2.70 * eyeDistNorm;
             }
             normFullHeadHeight = Math.max(0.15, rawHeadHeight);
           }
@@ -292,16 +322,16 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
         console.warn('Lỗi phát hiện khuôn mặt:', faceErr);
       }
 
-      // 3. Smart Fallback using Segmentation Mask if Face Detection was empty
+      // 3. Smart Fallback using Segmentation Mask if Face Detection returned 0 faces
       if (!faceFound && maskData && mWidth > 0 && mHeight > 0) {
-        let minY = mHeight, maxY = 0, minX = mWidth, maxX = 0;
+        const scanMaxY = Math.floor(mHeight * 0.60);
+        let minY = mHeight, minX = mWidth, maxX = 0;
         let count = 0;
 
-        for (let y = 0; y < mHeight; y++) {
+        for (let y = 0; y < scanMaxY; y++) {
           for (let x = 0; x < mWidth; x++) {
             if (maskData[y * mWidth + x] > 0.35) {
               if (y < minY) minY = y;
-              if (y > maxY) maxY = y;
               if (x < minX) minX = x;
               if (x > maxX) maxX = x;
               count++;
@@ -309,17 +339,24 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
           }
         }
 
-        if (count > 50 && minY < maxY) {
+        if (count > 50 && minY < scanMaxY) {
           faceFound = true;
           const normPersonTopY = minY / mHeight;
-          const normPersonBottomY = maxY / mHeight;
           normFaceCenterX = Math.max(0.1, Math.min(0.9, ((minX + maxX) / 2) / mWidth));
-          const normPersonHeight = normPersonBottomY - normPersonTopY;
+          const personWidthNorm = (maxX - minX) / mWidth;
           
-          normFullHeadHeight = Math.max(0.20, Math.min(0.38, normPersonHeight * 0.30));
+          normFullHeadHeight = Math.max(0.20, Math.min(0.38, personWidthNorm * 0.90));
           normTopHeadY = normPersonTopY;
           normEyeCenterY = normTopHeadY + normFullHeadHeight * 0.45;
         }
+      }
+
+      // 4. Default Fallback for standard portrait if neither face detection nor segmentation found face
+      if (!faceFound) {
+        faceFound = true;
+        normFaceCenterX = 0.50;
+        normEyeCenterY = 0.35;
+        normFullHeadHeight = 0.30;
       }
 
       if (faceFound) {
@@ -584,7 +621,7 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
             {/* Display Canvas containing the image */}
             <canvas 
               ref={displayCanvasRef} 
-              className="w-full h-full object-contain rounded-lg shadow-lg"
+              className="w-full h-full object-cover rounded-lg shadow-lg"
             />
 
             {/* Passport template guidelines (strictly drawn on top) */}
