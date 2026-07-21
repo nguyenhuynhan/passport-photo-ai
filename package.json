@@ -11,7 +11,8 @@
     "lint": "tsc --noEmit",
     "test": "tsx src/utils/ai.test.ts",
     "test:alignment": "tsx src/utils/alignmentTest.ts",
-    "test:screenshot": "tsx scripts/capture-screenshots.ts"
+    "test:screenshot": "tsx scripts/capture-screenshots.ts",
+    "process:sample": "tsx scripts/process-sample-photo.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
