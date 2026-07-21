@@ -177,6 +177,7 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
       let faceFound = false;
       let normFaceCenterX = 0.5;
       let normEyeCenterY = 0.40;
+      let normTopHeadY = 0.20;
       let normFullHeadHeight = 0.50;
       let rotationAngle = 0;
 
@@ -238,44 +239,53 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
               ? (normRightEyeY + normLeftEyeY) / 2 
               : boxNormOriginY + boxNormHeight * 0.38;
 
-            // Geometric top of head: top of skull is ~1.30 * eyeDistPx above eyes in pixel space
-            const geomTopHeadY = Math.max(0.005, normEyeCenterY - (1.30 * eyeDistPx) / sourceHeight);
+            normFaceCenterX = Math.max(0.05, Math.min(0.95, normFaceCenterX));
+            normEyeCenterY = Math.max(0.05, Math.min(0.95, normEyeCenterY));
 
-            // Find top of head using segmentation mask if available
-            let normTopHeadY = geomTopHeadY;
+            const eyeDistNorm = (eyeDistPx / sourceHeight) > 0 ? (eyeDistPx / sourceHeight) : 0.15;
+
+            // Geometric top of head: top of skull is ~1.30 * eyeDistPx above eyes in pixel space
+            const geomTopHeadY = Math.max(0.005, normEyeCenterY - 1.30 * eyeDistNorm);
+
+            // Find top of head using segmentation mask if available within realistic anatomical window
+            normTopHeadY = geomTopHeadY;
             if (maskData && mWidth > 0 && mHeight > 0) {
               const scanCenterX = Math.floor(normFaceCenterX * mWidth);
               const scanHalfWidth = Math.max(3, Math.floor((eyeDistPx / sourceWidth) * mWidth * 0.8));
               const startX = Math.max(0, scanCenterX - scanHalfWidth);
               const endX = Math.min(mWidth - 1, scanCenterX + scanHalfWidth);
 
-              for (let y = 0; y < mHeight; y++) {
-                let foundRow = false;
+              const minYToScan = Math.max(0, Math.floor((normEyeCenterY - 1.75 * eyeDistNorm) * mHeight));
+              const maxYToScan = Math.min(mHeight - 1, Math.floor((normEyeCenterY - 0.85 * eyeDistNorm) * mHeight));
+
+              let foundMaskTop = false;
+              for (let y = minYToScan; y <= maxYToScan; y++) {
                 for (let x = startX; x <= endX; x++) {
                   if (maskData[y * mWidth + x] > 0.35) {
-                    const candidateTopY = y / mHeight;
-                    if (candidateTopY < normEyeCenterY && (normEyeCenterY - candidateTopY) > 0.4 * (1.30 * eyeDistPx / sourceHeight)) {
-                      normTopHeadY = candidateTopY;
-                    }
-                    foundRow = true;
+                    normTopHeadY = y / mHeight;
+                    foundMaskTop = true;
                     break;
                   }
                 }
-                if (foundRow) break;
+                if (foundMaskTop) break;
               }
             }
 
             // Chin position calculation
             let normChinY = 0;
             if (normMouthY > normEyeCenterY) {
-              normChinY = normMouthY + (0.75 * eyeDistPx) / sourceHeight;
+              normChinY = normMouthY + 0.75 * eyeDistNorm;
             } else {
-              normChinY = normEyeCenterY + (1.75 * eyeDistPx) / sourceHeight;
+              normChinY = normEyeCenterY + 1.55 * eyeDistNorm;
             }
-            normChinY = Math.min(0.995, normChinY);
+            normChinY = Math.min(0.995, Math.max(normEyeCenterY + 1.2 * eyeDistNorm, normChinY));
 
-            // Total head height in normalized Y units
-            normFullHeadHeight = Math.max(0.15, normChinY - normTopHeadY);
+            // Total head height in normalized Y units constrained to realistic anatomical range [2.0, 3.4] * eyeDistNorm
+            let rawHeadHeight = normChinY - normTopHeadY;
+            if (rawHeadHeight < 2.0 * eyeDistNorm || rawHeadHeight > 3.4 * eyeDistNorm) {
+              rawHeadHeight = 2.85 * eyeDistNorm;
+            }
+            normFullHeadHeight = Math.max(0.15, rawHeadHeight);
           }
         }
       } catch (faceErr) {
@@ -301,11 +311,14 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
 
         if (count > 50 && minY < maxY) {
           faceFound = true;
-          const normTopHeadY = minY / mHeight;
-          normFaceCenterX = ((minX + maxX) / 2) / mWidth;
-          const normPersonHeight = (maxY - minY) / mHeight;
-          normFullHeadHeight = Math.min(0.40, normPersonHeight * 0.40);
-          normEyeCenterY = normTopHeadY + normFullHeadHeight * 0.38;
+          const normPersonTopY = minY / mHeight;
+          const normPersonBottomY = maxY / mHeight;
+          normFaceCenterX = Math.max(0.1, Math.min(0.9, ((minX + maxX) / 2) / mWidth));
+          const normPersonHeight = normPersonBottomY - normPersonTopY;
+          
+          normFullHeadHeight = Math.max(0.20, Math.min(0.38, normPersonHeight * 0.30));
+          normTopHeadY = normPersonTopY;
+          normEyeCenterY = normTopHeadY + normFullHeadHeight * 0.45;
         }
       }
 
@@ -757,7 +770,7 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
                 id="adjust_zoom_range"
                 type="range"
                 min="0.3"
-                max="3.5"
+                max="4.0"
                 step="0.05"
                 value={adjustments.zoom}
                 onChange={(e) => handleSliderChange('zoom', parseFloat(e.target.value))}
@@ -795,8 +808,8 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
               <input
                 id="adjust_offset_x_range"
                 type="range"
-                min="-600"
-                max="600"
+                min="-1000"
+                max="1000"
                 step="2"
                 value={adjustments.offsetX}
                 onChange={(e) => handleSliderChange('offsetX', parseInt(e.target.value))}
@@ -813,8 +826,8 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
               <input
                 id="adjust_offset_y_range"
                 type="range"
-                min="-600"
-                max="600"
+                min="-1000"
+                max="1000"
                 step="2"
                 value={adjustments.offsetY}
                 onChange={(e) => handleSliderChange('offsetY', parseInt(e.target.value))}
