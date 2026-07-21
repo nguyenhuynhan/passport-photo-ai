@@ -46,22 +46,12 @@ export function calculateAutoAdjustments(landmarks: ImageLandmarks, preset = PHO
   const normFaceCenterX = (normRightEyeX + normLeftEyeX) / 2;
   const normEyeCenterY = (normRightEyeY + normLeftEyeY) / 2;
 
-  const eyeDistNorm = (eyeDistPx / sourceHeight) > 0 ? (eyeDistPx / sourceHeight) : 0.15;
-  const computedTopHeadY = Math.max(0.005, normEyeCenterY - 2.0 * eyeDistNorm);
-  
-  let computedChinY = 0;
+  let computedChinY = normEyeCenterY + 1.8 * (eyeDistPx / sourceHeight);
   if (normMouthY > normEyeCenterY) {
-    computedChinY = normMouthY + 1.0 * eyeDistNorm;
-  } else {
-    computedChinY = normEyeCenterY + 1.8 * eyeDistNorm;
+    computedChinY = normMouthY + (normMouthY - normEyeCenterY) * 0.95;
   }
-  computedChinY = Math.min(0.995, Math.max(normEyeCenterY + 1.6 * eyeDistNorm, computedChinY));
-
-  let rawHeadHeight = computedChinY - computedTopHeadY;
-  if (rawHeadHeight < 3.2 * eyeDistNorm || rawHeadHeight > 4.8 * eyeDistNorm) {
-    rawHeadHeight = 3.9 * eyeDistNorm;
-  }
-  const normFullHeadHeight = Math.max(0.20, rawHeadHeight);
+  let computedTopHeadY = normTopHeadY > 0 ? normTopHeadY : Math.max(0.01, normEyeCenterY - (computedChinY - normEyeCenterY) * 1.10);
+  const normFullHeadHeight = Math.max(0.20, computedChinY - computedTopHeadY);
 
   const standardCanvasHeight = 1800;
   const standardCanvasWidth = Math.round(standardCanvasHeight * preset.aspectRatio);

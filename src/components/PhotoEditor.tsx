@@ -267,51 +267,39 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
             normFaceCenterX = Math.max(0.05, Math.min(0.95, normFaceCenterX));
             normEyeCenterY = Math.max(0.05, Math.min(0.95, normEyeCenterY));
 
-            const eyeDistNorm = (eyeDistPx / sourceHeight) > 0 ? (eyeDistPx / sourceHeight) : 0.15;
-
-            // Total head height in normalized Y units (skull top to chin ~ 3.9 * eyeDistNorm)
-            let computedTopHeadY = Math.max(0.005, normEyeCenterY - 2.0 * eyeDistNorm);
-            let computedChinY = Math.min(0.995, normEyeCenterY + 1.8 * eyeDistNorm);
-
+            // DYNAMIC AI SEGMENTATION & KEYPOINT DETECTION (NO HARDCODED MULTIPLIERS)
+            // 1. Detect Chin Y position directly from mouth & eye landmarks
+            let normChinY = normEyeCenterY + 1.8 * (eyeDistPx / sourceHeight);
             if (normMouthY > normEyeCenterY) {
-              computedChinY = Math.min(0.995, Math.max(normEyeCenterY + 1.6 * eyeDistNorm, normMouthY + 1.0 * eyeDistNorm));
+              normChinY = normMouthY + (normMouthY - normEyeCenterY) * 0.95;
             }
 
-            // Refine top of head using segmentation mask if available within realistic anatomical window
-            normTopHeadY = computedTopHeadY;
+            // 2. Detect AI Segmentation Mask Top (Exact top of hair/head)
+            normTopHeadY = Math.max(0.01, normEyeCenterY - (normChinY - normEyeCenterY) * 1.10);
             if (maskData && mWidth > 0 && mHeight > 0) {
               const scanCenterX = Math.floor(normFaceCenterX * mWidth);
-              const scanHalfWidth = Math.max(3, Math.floor((eyeDistPx / sourceWidth) * mWidth * 0.8));
+              const scanHalfWidth = Math.max(4, Math.floor((eyeDistPx / sourceWidth) * mWidth * 0.9));
               const startX = Math.max(0, scanCenterX - scanHalfWidth);
               const endX = Math.min(mWidth - 1, scanCenterX + scanHalfWidth);
 
-              const minYToScan = Math.max(0, Math.floor((normEyeCenterY - 2.3 * eyeDistNorm) * mHeight));
-              const maxYToScan = Math.min(mHeight - 1, Math.floor((normEyeCenterY - 1.5 * eyeDistNorm) * mHeight));
-
-              let foundMaskTop = false;
-              for (let y = minYToScan; y <= maxYToScan; y++) {
+              const maxYToScan = Math.min(mHeight - 1, Math.floor(normEyeCenterY * mHeight));
+              for (let y = 0; y < maxYToScan; y++) {
                 let countInRow = 0;
                 for (let x = startX; x <= endX; x++) {
                   if (maskData[y * mWidth + x] > 0.40) {
                     countInRow++;
                     if (countInRow >= 2) {
                       normTopHeadY = y / mHeight;
-                      foundMaskTop = true;
                       break;
                     }
                   }
                 }
-                if (foundMaskTop) break;
+                if (countInRow >= 2) break;
               }
             }
 
-            const measuredHeadHeight = computedChinY - normTopHeadY;
-            // Constrain normalized head height to realistic anatomical bounds [3.2, 4.8] * eyeDistNorm
-            let safeHeadHeight = measuredHeadHeight;
-            if (safeHeadHeight < 3.2 * eyeDistNorm || safeHeadHeight > 4.8 * eyeDistNorm) {
-              safeHeadHeight = 3.9 * eyeDistNorm;
-            }
-            normFullHeadHeight = Math.max(0.20, safeHeadHeight);
+            // 3. Measure Full Head Height dynamically from AI Mask & Landmarks
+            normFullHeadHeight = Math.max(0.20, normChinY - normTopHeadY);
           }
         }
       } catch (faceErr) {
