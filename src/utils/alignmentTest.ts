@@ -32,44 +32,40 @@ export const MOBILE_VIEWPORTS: MobileViewport[] = [
 ];
 
 export function calculateAutoAdjustments(landmarks: ImageLandmarks, preset = PHOTO_PRESETS[PassportStandard.VIETNAM_4x6]): ImageAdjustments {
-  const { width: sourceWidth, height: sourceHeight, normRightEyeX, normRightEyeY, normLeftEyeX, normLeftEyeY, normMouthY, normTopHeadY, normChinY } = landmarks;
-
-  const minEyeX = Math.min(normRightEyeX, normLeftEyeX);
-  const maxEyeX = Math.max(normRightEyeX, normLeftEyeX);
+  const { width: sourceWidth, height: sourceHeight, normRightEyeX, normRightEyeY, normLeftEyeX, normLeftEyeY, normTopHeadY, normChinY } = landmarks;
 
   const dxPx = (normLeftEyeX - normRightEyeX) * sourceWidth;
   const dyPx = (normLeftEyeY - normRightEyeY) * sourceHeight;
-  const eyeDistPx = Math.hypot(dxPx, dyPx);
   const rawAngle = -Math.atan2(dyPx, dxPx) * (180 / Math.PI);
   const rotationAngle = Math.max(-15, Math.min(15, rawAngle));
 
   const normFaceCenterX = (normRightEyeX + normLeftEyeX) / 2;
-  const normEyeCenterY = (normRightEyeY + normLeftEyeY) / 2;
-
-  let computedChinY = normEyeCenterY + 1.8 * (eyeDistPx / sourceHeight);
-  if (normMouthY > normEyeCenterY) {
-    computedChinY = normMouthY + (normMouthY - normEyeCenterY) * 0.95;
-  }
-  let computedTopHeadY = normTopHeadY > 0 ? normTopHeadY : Math.max(0.01, normEyeCenterY - (computedChinY - normEyeCenterY) * 1.10);
-  const normFullHeadHeight = Math.max(0.20, computedChinY - computedTopHeadY);
+  const normHeadCenterY = (normTopHeadY + normChinY) / 2;
+  const normFullHeadHeight = Math.max(0.18, normChinY - normTopHeadY);
 
   const standardCanvasHeight = 1800;
   const standardCanvasWidth = Math.round(standardCanvasHeight * preset.aspectRatio);
 
-  const targetHeadHeightPercent = 0.62;
+  const targetHeadHeightPercent = (preset.overlaySpecs.chinPercent - preset.overlaySpecs.headTopPercent) / 100;
   const targetHeadHeightPx = standardCanvasHeight * targetHeadHeightPercent;
 
   const baseScale = Math.min(standardCanvasWidth / sourceWidth, standardCanvasHeight / sourceHeight);
   const headScaleNeeded = targetHeadHeightPx / (normFullHeadHeight * sourceHeight);
 
   const calculatedZoom = headScaleNeeded / baseScale;
-  const rawZoom = Math.max(0.6, Math.min(2.5, calculatedZoom));
+  const isPortrait = sourceHeight >= sourceWidth;
+  const maxAllowedZoom = isPortrait ? 3.5 : 4.0;
+  const minAllowedZoom = isPortrait ? 0.50 : 0.40;
+
+  const rawZoom = Math.max(minAllowedZoom, Math.min(maxAllowedZoom, calculatedZoom));
   const zoom = isFinite(rawZoom) && rawZoom > 0 ? rawZoom : 1.0;
   const finalScale = baseScale * zoom;
 
-  const targetEyeLinePxOnCanvas = (preset.overlaySpecs.eyeLinePercent / 100) * standardCanvasHeight;
+  const targetHeadCenterPercent = (preset.overlaySpecs.headTopPercent + preset.overlaySpecs.chinPercent) / 2;
+  const targetHeadCenterPxOnCanvas = (targetHeadCenterPercent / 100) * standardCanvasHeight;
+
   const rawOffsetX = (0.5 - normFaceCenterX) * sourceWidth * finalScale;
-  const rawOffsetY = targetEyeLinePxOnCanvas - (standardCanvasHeight / 2) - (normEyeCenterY - 0.5) * sourceHeight * finalScale;
+  const rawOffsetY = targetHeadCenterPxOnCanvas - (standardCanvasHeight / 2) - (normHeadCenterY - 0.5) * sourceHeight * finalScale;
 
   const targetOffsetX = Math.max(-1000, Math.min(1000, isFinite(rawOffsetX) ? rawOffsetX : 0));
   const targetOffsetY = Math.max(-1000, Math.min(1000, isFinite(rawOffsetY) ? rawOffsetY : 0));
@@ -85,9 +81,62 @@ export function calculateAutoAdjustments(landmarks: ImageLandmarks, preset = PHO
   };
 }
 
+
+
+export interface VerificationResult {
+  topHeadErrorPx: number;
+  chinErrorPx: number;
+  eyeErrorPx: number;
+  headHeightErrorPx: number;
+}
+
+export function verifyFullAlignmentOnCanvas(
+  landmarks: ImageLandmarks, 
+  adjustments: ImageAdjustments, 
+  preset = PHOTO_PRESETS[PassportStandard.VIETNAM_4x6]
+): VerificationResult {
+  const normEyeCenterY = (landmarks.normRightEyeY + landmarks.normLeftEyeY) / 2;
+  const standardCanvasHeight = 1800;
+  const standardCanvasWidth = Math.round(standardCanvasHeight * preset.aspectRatio);
+
+  const baseScale = Math.min(standardCanvasWidth / landmarks.width, landmarks.height ? standardCanvasHeight / landmarks.height : 1);
+  const finalScale = baseScale * adjustments.zoom;
+  const canvasCenterY = standardCanvasHeight / 2;
+
+  const actualTopHeadCanvasY = canvasCenterY + adjustments.offsetY + (landmarks.normTopHeadY - 0.5) * landmarks.height * finalScale;
+  const actualChinCanvasY = canvasCenterY + adjustments.offsetY + (landmarks.normChinY - 0.5) * landmarks.height * finalScale;
+  const actualEyeCanvasY = canvasCenterY + adjustments.offsetY + (normEyeCenterY - 0.5) * landmarks.height * finalScale;
+
+  const targetTopHeadCanvasY = (preset.overlaySpecs.headTopPercent / 100) * standardCanvasHeight;
+  const targetChinCanvasY = (preset.overlaySpecs.chinPercent / 100) * standardCanvasHeight;
+  const targetEyeCanvasY = (preset.overlaySpecs.eyeLinePercent / 100) * standardCanvasHeight;
+
+  const topHeadErrorPx = Math.abs(actualTopHeadCanvasY - targetTopHeadCanvasY);
+  const chinErrorPx = Math.abs(actualChinCanvasY - targetChinCanvasY);
+  const eyeErrorPx = Math.abs(actualEyeCanvasY - targetEyeCanvasY);
+
+  const actualHeadHeightPx = actualChinCanvasY - actualTopHeadCanvasY;
+  const targetHeadHeightPx = targetChinCanvasY - targetTopHeadCanvasY;
+  const headHeightErrorPx = Math.abs(actualHeadHeightPx - targetHeadHeightPx);
+
+  return { topHeadErrorPx, chinErrorPx, eyeErrorPx, headHeightErrorPx };
+}
+
 const TEST_CASES: ImageLandmarks[] = [
   {
-    name: 'Standard Portrait (Male 768x1024)',
+    name: 'User Portrait Photo (Elderly Male 768x1024)',
+    width: 768,
+    height: 1024,
+    normRightEyeX: 0.40,
+    normRightEyeY: 0.42,
+    normLeftEyeX: 0.58,
+    normLeftEyeY: 0.42,
+    normMouthY: 0.54,
+    normTopHeadY: 0.2412,
+    normChinY: 0.6382,
+  },
+  {
+    name: 'Standard Male Portrait (768x1024)',
     width: 768,
     height: 1024,
     normRightEyeX: 320 / 768,
@@ -124,50 +173,41 @@ const TEST_CASES: ImageLandmarks[] = [
   }
 ];
 
-export function verifyEyelineAlignmentOnCanvas(landmarks: ImageLandmarks, adjustments: ImageAdjustments, preset = PHOTO_PRESETS[PassportStandard.VIETNAM_4x6]): { canvasEyeY: number; targetEyeY: number; errorPx: number } {
-  const normEyeCenterY = (landmarks.normRightEyeY + landmarks.normLeftEyeY) / 2;
-  const standardCanvasHeight = 1800;
-  const standardCanvasWidth = Math.round(standardCanvasHeight * preset.aspectRatio);
-
-  const baseScale = Math.min(standardCanvasWidth / landmarks.width, standardCanvasHeight / landmarks.height);
-  const finalScale = baseScale * adjustments.zoom;
-
-  const canvasCenterY = standardCanvasHeight / 2;
-  const eyeRelY = (normEyeCenterY - 0.5) * landmarks.height * finalScale;
-  const actualEyeCanvasY = canvasCenterY + adjustments.offsetY + eyeRelY;
-
-  const targetEyeY = (preset.overlaySpecs.eyeLinePercent / 100) * standardCanvasHeight;
-  const errorPx = Math.abs(actualEyeCanvasY - targetEyeY);
-
-  return { canvasEyeY: actualEyeCanvasY, targetEyeY, errorPx };
-}
-
 export function runAutomationSuite() {
   console.log('===========================================================');
-  console.log('PASSPORT PHOTO AI - COMPREHENSIVE AUTOMATION & MOBILE SUITE');
+  console.log('PASSPORT PHOTO AI - RIGOROUS AUTOMATION & ALIGNMENT SUITE');
   console.log('===========================================================\n');
 
   let passed = true;
 
-  // 1. Landmark & Alignment Tests across presets
-  console.log('--- 1. ALIGNMENT & EYELINE PRECISION TESTS ---');
+  console.log('--- 1. STRICT 3-POINT ALIGNMENT & HEAD HEIGHT PRECISION TESTS ---');
   for (const testCase of TEST_CASES) {
     console.log(`\nTesting Image Case: "${testCase.name}" (${testCase.width}x${testCase.height})`);
     
     for (const presetKey of Object.keys(PHOTO_PRESETS) as PassportStandard[]) {
       const preset = PHOTO_PRESETS[presetKey];
       const result = calculateAutoAdjustments(testCase, preset);
-      const eyelineVerification = verifyEyelineAlignmentOnCanvas(testCase, result, preset);
+      const verification = verifyFullAlignmentOnCanvas(testCase, result, preset);
       
-      console.log(`  -> Preset [${preset.name}]: zoom=${result.zoom}, offsetX=${result.offsetX}px, offsetY=${result.offsetY}px | Eye Error: ${eyelineVerification.errorPx.toFixed(1)}px`);
+      console.log(`  -> Preset [${preset.name}]: zoom=${result.zoom}, offsetX=${result.offsetX}px, offsetY=${result.offsetY}px | HeadTop Err: ${verification.topHeadErrorPx.toFixed(1)}px, Chin Err: ${verification.chinErrorPx.toFixed(1)}px, Eye Err: ${verification.eyeErrorPx.toFixed(1)}px, HeadHeight Err: ${verification.headHeightErrorPx.toFixed(1)}px`);
 
       if (!isFinite(result.zoom) || result.zoom <= 0 || Math.abs(result.offsetX) > 1000 || Math.abs(result.offsetY) > 1000) {
         console.error(`     ❌ ERROR: Alignment parameters exceed safety boundaries for preset ${preset.name}`);
         passed = false;
       }
 
-      if (eyelineVerification.errorPx > 25) {
-        console.error(`     ❌ ERROR: Eyeline error exceeds 25px tolerance for preset ${preset.name} (${eyelineVerification.errorPx.toFixed(1)}px)`);
+      if (verification.topHeadErrorPx > 25) {
+        console.error(`     ❌ ERROR: Top Head error (${verification.topHeadErrorPx.toFixed(1)}px) exceeds 25px tolerance for preset ${preset.name}`);
+        passed = false;
+      }
+
+      if (verification.chinErrorPx > 25) {
+        console.error(`     ❌ ERROR: Chin error (${verification.chinErrorPx.toFixed(1)}px) exceeds 25px tolerance for preset ${preset.name}`);
+        passed = false;
+      }
+
+      if (verification.headHeightErrorPx > 25) {
+        console.error(`     ❌ ERROR: Head Height error (${verification.headHeightErrorPx.toFixed(1)}px) exceeds 25px tolerance for preset ${preset.name}`);
         passed = false;
       }
     }
