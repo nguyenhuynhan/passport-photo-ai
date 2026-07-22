@@ -42,11 +42,11 @@ export const PHOTO_PRESETS: Record<PassportStandard, PhotoPreset> = {
     faceHeightMinPercent: 70,
     faceHeightMaxPercent: 80,
     defaultBgColor: '#FFFFFF',
-    description: 'Chuẩn Cổng dịch vụ công Bộ Công An: Nền trắng tinh. Đầu & vai thẳng, lộ rõ 2 vành tai & trán. Chiều cao đầu (từ cằm đến đỉnh đầu/tóc) từ 32mm-36mm (khoảng 53-60% chiều cao 60mm). Xuất độ phân giải 1200x1800px (300 DPI).',
+    description: 'Chuẩn ICAO Doc 9303 & Cổng dịch vụ công Bộ Công An: Nền trắng tinh. Mặt chiếm 70%-80% chiều cao ảnh (từ cằm đến đỉnh đầu/tóc khoảng 42-48mm). Xuất độ phân giải 1200x1800px (300 DPI).',
     overlaySpecs: {
-      headTopPercent: 8,
-      chinPercent: 66,
-      eyeLinePercent: 38,
+      headTopPercent: 7,
+      chinPercent: 82,
+      eyeLinePercent: 42,
     }
   },
   [PassportStandard.VIETNAM_3x4]: {
@@ -59,11 +59,11 @@ export const PHOTO_PRESETS: Record<PassportStandard, PhotoPreset> = {
     faceHeightMinPercent: 70,
     faceHeightMaxPercent: 80,
     defaultBgColor: '#FFFFFF',
-    description: 'Nền trắng hoặc nền xanh dương. Thường dùng cho chứng chỉ, bằng lái xe, thẻ học sinh/sinh viên.',
+    description: 'Nền trắng hoặc nền xanh dương. Mặt chiếm 70%-80% chiều cao ảnh. Thường dùng cho chứng chỉ, bằng lái xe, thẻ học sinh/sinh viên.',
     overlaySpecs: {
-      headTopPercent: 10,
-      chinPercent: 74,
-      eyeLinePercent: 39,
+      headTopPercent: 7,
+      chinPercent: 82,
+      eyeLinePercent: 42,
     }
   },
   [PassportStandard.CHINA_VISA]: {
@@ -78,9 +78,9 @@ export const PHOTO_PRESETS: Record<PassportStandard, PhotoPreset> = {
     defaultBgColor: '#FFFFFF',
     description: 'Nền trắng tinh. Mặt hướng thẳng, đầu chiếm từ 28mm-33mm chiều cao ảnh (khoảng 60-70%). Chiều rộng đầu 15mm-22mm.',
     overlaySpecs: {
-      headTopPercent: 9,
-      chinPercent: 71,
-      eyeLinePercent: 39,
+      headTopPercent: 8,
+      chinPercent: 74,
+      eyeLinePercent: 40,
     }
   },
   [PassportStandard.US_VISA]: {
@@ -93,11 +93,11 @@ export const PHOTO_PRESETS: Record<PassportStandard, PhotoPreset> = {
     faceHeightMinPercent: 50,
     faceHeightMaxPercent: 69,
     defaultBgColor: '#FFFFFF',
-    description: 'Nền trắng tinh. Đầu phải chiếm từ 50% đến 69% tổng chiều cao của ảnh. Mắt phải cách cạnh dưới của ảnh từ 56% đến 69%.',
+    description: 'Nền trắng tinh theo chuẩn US State Dept: Đầu chiếm 50% đến 69% tổng chiều cao của ảnh. Mắt cách cạnh dưới từ 56% đến 69%.',
     overlaySpecs: {
       headTopPercent: 10,
-      chinPercent: 68,
-      eyeLinePercent: 39,
+      chinPercent: 72,
+      eyeLinePercent: 40,
     }
   },
   [PassportStandard.SCHENGEN]: {
@@ -110,11 +110,11 @@ export const PHOTO_PRESETS: Record<PassportStandard, PhotoPreset> = {
     faceHeightMinPercent: 70,
     faceHeightMaxPercent: 80,
     defaultBgColor: '#F0F0F0',
-    description: 'Nền xám nhạt hoặc trắng nhạt. Mặt phải rõ nét, đầu chiếm 70% đến 80% (từ 32mm đến 36mm tính từ cằm đến đỉnh đầu, không kể tóc phồng).',
+    description: 'Nền xám nhạt hoặc trắng nhạt chuẩn EU. Mặt chiếm 70% đến 80% (từ 32mm đến 36mm tính từ cằm đến đỉnh đầu).',
     overlaySpecs: {
-      headTopPercent: 8,
-      chinPercent: 78,
-      eyeLinePercent: 38,
+      headTopPercent: 6,
+      chinPercent: 82,
+      eyeLinePercent: 42,
     }
   },
   [PassportStandard.CUSTOM]: {
@@ -129,9 +129,9 @@ export const PHOTO_PRESETS: Record<PassportStandard, PhotoPreset> = {
     defaultBgColor: '#FFFFFF',
     description: 'Tự do căn chỉnh tỉ lệ và chiều cao đầu phù hợp với nhu cầu riêng của bạn.',
     overlaySpecs: {
-      headTopPercent: 10,
-      chinPercent: 70,
-      eyeLinePercent: 39,
+      headTopPercent: 8,
+      chinPercent: 80,
+      eyeLinePercent: 41,
     }
   }
 };
@@ -188,13 +188,14 @@ export const DEFAULT_ADJUSTMENTS: ImageAdjustments = {
 export interface BgColorOption {
   name: string;
   value: string;
-  label: string;
+  bgClass: string;
+  borderClass: string;
 }
 
 export const BG_COLOR_OPTIONS: BgColorOption[] = [
-  { name: 'Trắng (White)', value: '#FFFFFF', label: 'bg-white text-black border-slate-300' },
-  { name: 'Xanh nhạt (Light Blue)', value: '#89CFF0', label: 'bg-[#89CFF0] text-black border-[#68b5db]' },
-  { name: 'Xanh đậm (Blue)', value: '#0F4C81', label: 'bg-[#0F4C81] text-white border-[#09355c]' },
-  { name: 'Xám sáng (Light Grey)', value: '#F0F0F0', label: 'bg-[#F0F0F0] text-black border-slate-300' },
-  { name: 'Trong suốt (Transparent)', value: 'transparent', label: 'bg-slate-100 text-black border-slate-300' },
+  { name: 'Trắng', value: '#FFFFFF', bgClass: 'bg-white', borderClass: 'border-slate-300' },
+  { name: 'Xanh nhạt', value: '#2B7FFF', bgClass: 'bg-[#2B7FFF]', borderClass: 'border-blue-400' },
+  { name: 'Xanh đậm', value: '#002B7F', bgClass: 'bg-[#002B7F]', borderClass: 'border-indigo-900' },
+  { name: 'Xám sáng', value: '#E5E7EB', bgClass: 'bg-gray-200', borderClass: 'border-gray-400' },
+  { name: 'Trong suốt', value: 'transparent', bgClass: 'bg-slate-800', borderClass: 'border-slate-600' },
 ];

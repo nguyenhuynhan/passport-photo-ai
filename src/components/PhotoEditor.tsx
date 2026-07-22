@@ -60,6 +60,7 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
   
   // AI processing states
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
+  const [hasCompletedAI, setHasCompletedAI] = useState<boolean>(false);
   const [aiLog, setAiLog] = useState<string>('');
   const [faceDetected, setFaceDetected] = useState<boolean>(false);
   const [segmentationMask, setSegmentationMask] = useState<Float32Array | null>(null);
@@ -77,6 +78,7 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
       getAdjustments: () => adjustments,
       setAdjustments: (adj: Partial<ImageAdjustments>) => setAdjustments((prev) => ({ ...prev, ...adj })),
       isProcessing: () => isProcessing,
+      hasCompletedAI: () => hasCompletedAI,
       getAiLog: () => aiLog,
       isFaceDetected: () => faceDetected,
       restoreInitialAlign: () => restoreInitialAlign(),
@@ -85,7 +87,7 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
       isRemoveBg: () => removeBg,
       setRemoveBg: (val: boolean) => setRemoveBg(val),
     };
-  }, [adjustments, isProcessing, aiLog, faceDetected, bgColor, removeBg]);
+  }, [adjustments, isProcessing, hasCompletedAI, aiLog, faceDetected, bgColor, removeBg]);
 
   // Helper to emit debounced cropped photo to parent state
   const emitDebouncedCropChange = () => {
@@ -127,38 +129,59 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
     setInitialAdjustments(null);
     setAdjustments({ ...DEFAULT_ADJUSTMENTS });
 
-    const img = new Image();
-    if (imageSrc.startsWith('http')) {
-      img.crossOrigin = 'anonymous';
-    }
-    img.referrerPolicy = 'no-referrer';
-    img.src = imageSrc;
-    
-    img.onload = async () => {
-      originalImageRef.current = img;
-      setImgWidth(img.width);
-      setImgHeight(img.height);
-      setLoadedImg(img);
+    let createdBlobUrl: string | null = null;
 
-      // Immediately render base image to offscreen canvas so preview shows right away
-      if (!segmentedCanvasRef.current) {
-        segmentedCanvasRef.current = document.createElement('canvas');
-      }
-      const segCanvas = segmentedCanvasRef.current;
-      segCanvas.width = img.width;
-      segCanvas.height = img.height;
-      const ctx = segCanvas.getContext('2d', { willReadFrequently: true });
-      if (ctx) {
-        ctx.drawImage(img, 0, 0);
+    const loadImageSafely = async () => {
+      const img = new Image();
+      let effectiveSrc = imageSrc;
+
+      if (imageSrc.startsWith('http')) {
+        try {
+          const res = await fetch(imageSrc);
+          const blob = await res.blob();
+          effectiveSrc = URL.createObjectURL(blob);
+          createdBlobUrl = effectiveSrc;
+        } catch (e) {
+          img.crossOrigin = 'anonymous';
+        }
       }
 
-      // Run AI
-      await runAIProcessing(img);
+      img.src = effectiveSrc;
+
+      img.onload = async () => {
+        originalImageRef.current = img;
+        setImgWidth(img.width);
+        setImgHeight(img.height);
+        setLoadedImg(img);
+
+        // Immediately render base image to offscreen canvas so preview shows right away
+        if (!segmentedCanvasRef.current) {
+          segmentedCanvasRef.current = document.createElement('canvas');
+        }
+        const segCanvas = segmentedCanvasRef.current;
+        segCanvas.width = img.width;
+        segCanvas.height = img.height;
+        const ctx = segCanvas.getContext('2d', { willReadFrequently: true });
+        if (ctx) {
+          ctx.drawImage(img, 0, 0);
+        }
+
+        // Run AI
+        await runAIProcessing(img);
+      };
+
+      img.onerror = (err) => {
+        console.error('Lỗi khi tải ảnh:', err);
+        setIsProcessing(false);
+      };
     };
 
-    img.onerror = (err) => {
-      console.error('Lỗi khi tải ảnh:', err);
-      setIsProcessing(false);
+    loadImageSafely();
+
+    return () => {
+      if (createdBlobUrl) {
+        URL.revokeObjectURL(createdBlobUrl);
+      }
     };
   }, [imageSrc]);
 
@@ -167,6 +190,7 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
     if (!img || !img.width || !img.height) return;
 
     setIsProcessing(true);
+    setHasCompletedAI(false);
     setAiLog(t.aiProcessingStep1);
     // Yield to browser UI thread so loading spinner renders immediately
     await new Promise((r) => setTimeout(r, 60));
@@ -227,19 +251,21 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
             const chinTip = lms[152];
             normChinY = chinTip ? chinTip.y : normEyeCenterY + 0.30;
 
-            // Calculate eye rotation angle
+            // Calculate eye distance in pixels
             const dxPx = (leftPupil.x - rightPupil.x) * sW;
             const dyPx = (leftPupil.y - rightPupil.y) * sH;
             const eyeDistPx = Math.hypot(dxPx, dyPx);
-            const rawAngle = -Math.atan2(dyPx, dxPx) * (180 / Math.PI);
-            rotationAngle = Math.max(-15, Math.min(15, rawAngle));
+
+            // Calculate eye rotation angle in normalized geometric space
+            const rawAngle = -Math.atan2(leftPupil.y - rightPupil.y, leftPupil.x - rightPupil.x) * (180 / Math.PI);
+            rotationAngle = Math.max(-8, Math.min(8, rawAngle));
 
             // Detect top of head from hair mask or forehead landmark 10
             const eyeToChin = normChinY - normEyeCenterY;
             const foreheadY = lms[10] ? lms[10].y : normEyeCenterY - 0.70 * eyeToChin;
             
-            // Geometric default for top of hair/head (hair adds ~10-15% above forehead)
-            normTopHeadY = Math.max(0.01, normEyeCenterY - 1.08 * eyeToChin);
+            // Geometric default for top of hair/head (hair adds ~20% above eyes to match chin distance)
+            normTopHeadY = Math.max(0.01, normEyeCenterY - 1.20 * eyeToChin);
 
             if (maskData && mWidth > 0 && mHeight > 0) {
               const scanCenterX = Math.floor(normFaceCenterX * mWidth);
@@ -247,21 +273,25 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
               const startX = Math.max(0, scanCenterX - scanHalfWidth);
               const endX = Math.min(mWidth - 1, scanCenterX + scanHalfWidth);
 
-              const minScanY = Math.max(0, Math.floor((normEyeCenterY - 1.25 * eyeToChin) * mHeight));
+              const minScanY = Math.max(0, Math.floor((normEyeCenterY - 1.45 * eyeToChin) * mHeight));
               const maxScanY = Math.min(mHeight - 1, Math.floor(foreheadY * mHeight));
+              const requiredPixelsInRow = Math.max(2, Math.floor((endX - startX) * 0.15));
 
-              // Scan upward from forehead to top of hair to find exact hair top boundary
-              for (let y = maxScanY; y >= minScanY; y--) {
+              // Scan downward from above hair to forehead to find exact hair top boundary
+              let foundHair = false;
+              for (let y = minScanY; y <= maxScanY; y++) {
                 let countInRow = 0;
                 for (let x = startX; x <= endX; x++) {
-                  if (maskData[y * mWidth + x] > 0.45) {
+                  if (maskData[y * mWidth + x] > 0.50) {
                     countInRow++;
-                    if (countInRow >= 3) {
+                    if (countInRow >= requiredPixelsInRow) {
                       normTopHeadY = y / mHeight;
+                      foundHair = true;
                       break;
                     }
                   }
                 }
+                if (foundHair) break;
               }
             }
 
@@ -311,11 +341,11 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
 
               let eyeDistPx = 0;
               if (hasKeypoints && maxEyeX > minEyeX) {
-                const dxPx = (normLeftEyeX - normRightEyeX) * sourceWidth;
-                const dyPx = (normLeftEyeY - normRightEyeY) * sourceHeight;
-                eyeDistPx = Math.hypot(dxPx, dyPx);
-                const rawAngle = -Math.atan2(dyPx, dxPx) * (180 / Math.PI);
-                rotationAngle = Math.max(-15, Math.min(15, rawAngle));
+                const dxNorm = normLeftEyeX - normRightEyeX;
+                const dyNorm = normLeftEyeY - normRightEyeY;
+                eyeDistPx = Math.hypot(dxNorm * sourceWidth, dyNorm * sourceHeight);
+                const rawAngle = -Math.atan2(dyNorm, dxNorm) * (180 / Math.PI);
+                rotationAngle = Math.max(-8, Math.min(8, rawAngle));
               } else {
                 const boxWidthPx = boxNormWidth * sourceWidth;
                 eyeDistPx = boxWidthPx * 0.45;
@@ -339,7 +369,7 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
 
               const eyeToChin = normChinY - normEyeCenterY;
               const foreheadY = normEyeCenterY - 0.70 * eyeToChin;
-              normTopHeadY = Math.max(0.01, normEyeCenterY - 1.08 * eyeToChin);
+              normTopHeadY = Math.max(0.01, normEyeCenterY - 1.20 * eyeToChin);
 
               if (maskData && mWidth > 0 && mHeight > 0) {
                 const scanCenterX = Math.floor(normFaceCenterX * mWidth);
@@ -347,20 +377,24 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
                 const startX = Math.max(0, scanCenterX - scanHalfWidth);
                 const endX = Math.min(mWidth - 1, scanCenterX + scanHalfWidth);
 
-                const minScanY = Math.max(0, Math.floor((normEyeCenterY - 1.25 * eyeToChin) * mHeight));
+                const minScanY = Math.max(0, Math.floor((normEyeCenterY - 1.45 * eyeToChin) * mHeight));
                 const maxScanY = Math.min(mHeight - 1, Math.floor(foreheadY * mHeight));
+                const requiredPixelsInRow = Math.max(2, Math.floor((endX - startX) * 0.15));
 
-                for (let y = maxScanY; y >= minScanY; y--) {
+                let foundHair = false;
+                for (let y = minScanY; y <= maxScanY; y++) {
                   let countInRow = 0;
                   for (let x = startX; x <= endX; x++) {
-                    if (maskData[y * mWidth + x] > 0.45) {
+                    if (maskData[y * mWidth + x] > 0.50) {
                       countInRow++;
-                      if (countInRow >= 3) {
+                      if (countInRow >= requiredPixelsInRow) {
                         normTopHeadY = y / mHeight;
+                        foundHair = true;
                         break;
                       }
                     }
                   }
+                  if (foundHair) break;
                 }
               }
 
@@ -423,24 +457,48 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
         const baseScale = Math.min(standardCanvasWidth / img.width, standardCanvasHeight / img.height);
         const headScaleNeeded = targetHeadHeightPx / (normFullHeadHeight * img.height);
         
-        const calculatedZoom = headScaleNeeded / baseScale;
-        const isPortrait = img.height >= img.width;
-        const maxAllowedZoom = isPortrait ? 3.5 : 4.0;
-        const minAllowedZoom = isPortrait ? 0.50 : 0.40;
-        const rawZoom = Math.max(minAllowedZoom, Math.min(maxAllowedZoom, calculatedZoom));
-        const zoom = isFinite(rawZoom) && rawZoom > 0 ? rawZoom : 1.0;
-        const finalScale = baseScale * zoom;
+        let calculatedZoom = headScaleNeeded / baseScale;
 
-        // Center head vertically between Top Head guide line and Chin guide line for exact template framing
+        // Target center of head on canvas derived from Top Head and Chin guidelines
         const targetHeadCenterPercent = (preset.overlaySpecs.headTopPercent + preset.overlaySpecs.chinPercent) / 2;
         const targetHeadCenterPxOnCanvas = (targetHeadCenterPercent / 100) * standardCanvasHeight;
         const normHeadCenterY = (normTopHeadY + normChinY) / 2;
 
-        const rawOffsetX = (0.5 - normFaceCenterX) * img.width * finalScale;
-        const rawOffsetY = targetHeadCenterPxOnCanvas - (standardCanvasHeight / 2) - (normHeadCenterY - 0.5) * img.height * finalScale;
+        // Ensure zoom is sufficient so that aligning head center to targetHeadCenterPxOnCanvas covers both top and bottom edges of canvas
+        const minZoomToCoverTop = targetHeadCenterPxOnCanvas / (Math.max(0.10, normHeadCenterY) * img.height * baseScale);
+        const minZoomToCoverBottom = (standardCanvasHeight - targetHeadCenterPxOnCanvas) / (Math.max(0.10, 1 - normHeadCenterY) * img.height * baseScale);
+        
+        if (isFinite(minZoomToCoverTop) && minZoomToCoverTop > calculatedZoom) {
+          calculatedZoom = minZoomToCoverTop;
+        }
+        if (isFinite(minZoomToCoverBottom) && minZoomToCoverBottom > calculatedZoom) {
+          calculatedZoom = minZoomToCoverBottom;
+        }
 
-        const targetOffsetX = Math.max(-1000, Math.min(1000, isFinite(rawOffsetX) ? rawOffsetX : 0));
-        const targetOffsetY = Math.max(-1000, Math.min(1000, isFinite(rawOffsetY) ? rawOffsetY : 0));
+        const maxAllowedZoom = 10.0;
+        const minAllowedZoom = 0.30;
+        const rawZoom = Math.max(minAllowedZoom, Math.min(maxAllowedZoom, calculatedZoom));
+        const zoom = isFinite(rawZoom) && rawZoom > 0 ? rawZoom : 1.0;
+        const finalScale = baseScale * zoom;
+
+        const safeRotation = isFinite(rotationAngle) ? rotationAngle : 0;
+        const rad = (safeRotation * Math.PI) / 180;
+
+        // Account for face displacement caused by image rotation around its center
+        const dxImageCenter = (normFaceCenterX - 0.5) * img.width;
+        const dyImageCenter = (normHeadCenterY - 0.5) * img.height;
+
+        const dxRotated = dxImageCenter * Math.cos(rad) - dyImageCenter * Math.sin(rad);
+        const dyRotated = dxImageCenter * Math.sin(rad) + dyImageCenter * Math.cos(rad);
+
+        const rawOffsetX = -dxRotated * finalScale;
+        const rawOffsetY = targetHeadCenterPxOnCanvas - (standardCanvasHeight / 2) - dyRotated * finalScale;
+
+        const maxOffsetX = (img.width * finalScale + standardCanvasWidth) / 2;
+        const maxOffsetY = (img.height * finalScale + standardCanvasHeight) / 2;
+
+        const targetOffsetX = Math.max(-maxOffsetX, Math.min(maxOffsetX, isFinite(rawOffsetX) ? rawOffsetX : 0));
+        const targetOffsetY = Math.max(-maxOffsetY, Math.min(maxOffsetY, isFinite(rawOffsetY) ? rawOffsetY : 0));
 
         const computedAdjustments: ImageAdjustments = {
           ...DEFAULT_ADJUSTMENTS,
@@ -460,6 +518,7 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
       console.error('Lỗi khi chạy mô hình AI cục bộ:', err);
     } finally {
       setIsProcessing(false);
+      setHasCompletedAI(true);
       setTimeout(() => {
         drawMainCanvas();
       }, 50);

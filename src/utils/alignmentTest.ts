@@ -52,20 +52,33 @@ export function calculateAutoAdjustments(landmarks: ImageLandmarks, preset = PHO
   const baseScale = Math.min(standardCanvasWidth / sourceWidth, standardCanvasHeight / sourceHeight);
   const headScaleNeeded = targetHeadHeightPx / (normFullHeadHeight * sourceHeight);
 
-  const calculatedZoom = headScaleNeeded / baseScale;
+  let calculatedZoom = headScaleNeeded / baseScale;
+
+  const targetHeadCenterPercent = (preset.overlaySpecs.headTopPercent + preset.overlaySpecs.chinPercent) / 2;
+  const targetHeadCenterPxOnCanvas = (targetHeadCenterPercent / 100) * standardCanvasHeight;
+
+  // Ensure zoom is sufficient so the scaled image always covers the bottom edge of the canvas (avoiding blank bottom gap)
+  const minZoomToCoverBottom = ((standardCanvasHeight / 2) - (targetHeadCenterPxOnCanvas - standardCanvasHeight / 2)) / (0.5 * sourceHeight * baseScale);
+  if (isFinite(minZoomToCoverBottom) && minZoomToCoverBottom > calculatedZoom) {
+    calculatedZoom = minZoomToCoverBottom;
+  }
+
   const isPortrait = sourceHeight >= sourceWidth;
-  const maxAllowedZoom = isPortrait ? 3.5 : 4.0;
+  const maxAllowedZoom = isPortrait ? 4.0 : 5.5;
   const minAllowedZoom = isPortrait ? 0.50 : 0.40;
 
   const rawZoom = Math.max(minAllowedZoom, Math.min(maxAllowedZoom, calculatedZoom));
   const zoom = isFinite(rawZoom) && rawZoom > 0 ? rawZoom : 1.0;
   const finalScale = baseScale * zoom;
 
-  const targetHeadCenterPercent = (preset.overlaySpecs.headTopPercent + preset.overlaySpecs.chinPercent) / 2;
-  const targetHeadCenterPxOnCanvas = (targetHeadCenterPercent / 100) * standardCanvasHeight;
-
   const rawOffsetX = (0.5 - normFaceCenterX) * sourceWidth * finalScale;
-  const rawOffsetY = targetHeadCenterPxOnCanvas - (standardCanvasHeight / 2) - (normHeadCenterY - 0.5) * sourceHeight * finalScale;
+  let rawOffsetY = targetHeadCenterPxOnCanvas - (standardCanvasHeight / 2) - (normHeadCenterY - 0.5) * sourceHeight * finalScale;
+
+  // Safety clamp on Y offset to prevent bottom edge of photo from pulling above canvas bottom
+  const maxUpwardOffsetY = (sourceHeight * finalScale / 2) - (standardCanvasHeight / 2);
+  if (rawOffsetY < -maxUpwardOffsetY) {
+    rawOffsetY = -maxUpwardOffsetY;
+  }
 
   const targetOffsetX = Math.max(-1000, Math.min(1000, isFinite(rawOffsetX) ? rawOffsetX : 0));
   const targetOffsetY = Math.max(-1000, Math.min(1000, isFinite(rawOffsetY) ? rawOffsetY : 0));

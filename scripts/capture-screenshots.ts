@@ -8,7 +8,7 @@ import puppeteer from 'puppeteer';
 import path from 'path';
 import fs from 'fs';
 
-const ARTIFACT_DIR = 'C:/Users/nha/.gemini/antigravity/brain/c1fd293c-3339-44dd-a7fd-af7967b915e1';
+const ARTIFACT_DIR = 'C:/Users/nha/.gemini/antigravity/brain/a2acfec0-3079-43e6-9250-2e815f64a995';
 const LOCAL_SCREENSHOT_DIR = path.resolve(process.cwd(), 'screenshots');
 const ARTIFACT_SCREENSHOT_DIR = path.resolve(ARTIFACT_DIR, 'screenshots');
 
@@ -80,27 +80,28 @@ async function runScreenshotAutomation() {
     console.log(`\n  Scenario ${i + 1}/${testScenarios.length}: ${scenario.name} (${scenario.device})`);
 
     const page = await browser.newPage();
+    page.on('pageerror', (err) => console.log('    ⚠️ [PAGE ERROR]', err.message));
     await page.setViewport(scenario.viewport);
 
-    // Navigate with autotest query param
-    await page.goto(`${serverUrl}?autotest=true`, { waitUntil: 'domcontentloaded' });
+    // Navigate with autotest query param and scenario presetIndex
+    await page.goto(`${serverUrl}?autotest=true&presetIndex=${scenario.presetIndex}`, { waitUntil: 'domcontentloaded' });
 
-    // Wait for editor preview section to render
+    // Wait for editor preview section and AI processing completion
     try {
-      await page.waitForSelector('#photo_editor_section', { timeout: 15000 });
+      await page.waitForSelector('#photo_editor_section', { timeout: 30000 });
       await page.waitForFunction(
         () => {
           const editorTest = (window as any).passportEditorTest;
-          return editorTest && !editorTest.isProcessing();
+          return editorTest && editorTest.hasCompletedAI && editorTest.hasCompletedAI() && !editorTest.isProcessing();
         },
-        { timeout: 15000 }
+        { timeout: 30000 }
       );
     } catch (e) {
       console.warn('    ⚠️ Processing wait timeout, capturing current render state...');
     }
 
-    // Additional delay for canvas draw loop to settle
-    await new Promise((r) => setTimeout(r, 800));
+    // Additional delay for canvas draw loop and CSS animations to settle 100%
+    await new Promise((r) => setTimeout(r, 2500));
 
     // Get calculated adjustments from window API
     const adjustments = await page.evaluate(() => {
@@ -110,10 +111,15 @@ async function runScreenshotAutomation() {
 
     console.log(`    -> Computed Adjustments: zoom=${adjustments?.zoom}, offsetX=${adjustments?.offsetX}px, offsetY=${adjustments?.offsetY}px`);
 
-    // Capture Full Page Screenshot
-    const filename = `${scenario.name}.png`;
-    const localPath = path.join(LOCAL_SCREENSHOT_DIR, filename);
-    const artifactPath = path.join(ARTIFACT_SCREENSHOT_DIR, filename);
+    // Capture Full Page Screenshot with timestamp & versioning
+    const timestamp = Date.now();
+    const versionedFilename = `${scenario.name}_v${timestamp}.png`;
+    const standardFilename = `${scenario.name}.png`;
+
+    const localPath = path.join(LOCAL_SCREENSHOT_DIR, standardFilename);
+    const localVersionedPath = path.join(LOCAL_SCREENSHOT_DIR, versionedFilename);
+    const artifactPath = path.join(ARTIFACT_SCREENSHOT_DIR, standardFilename);
+    const artifactVersionedPath = path.join(ARTIFACT_SCREENSHOT_DIR, versionedFilename);
 
     const editorElement = await page.$('#photo_editor_section');
     if (editorElement) {
@@ -122,9 +128,11 @@ async function runScreenshotAutomation() {
       await page.screenshot({ path: localPath, fullPage: false });
     }
 
+    fs.copyFileSync(localPath, localVersionedPath);
     fs.copyFileSync(localPath, artifactPath);
+    fs.copyFileSync(localPath, artifactVersionedPath);
 
-    console.log(`    ✅ Screenshot saved: screenshots/${filename}`);
+    console.log(`    ✅ Screenshot saved: screenshots/${standardFilename} & ${versionedFilename}`);
 
     capturedResults.push({
       name: scenario.name,

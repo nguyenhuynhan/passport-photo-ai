@@ -8,15 +8,15 @@ import { Language, TRANSLATIONS } from '../locales/translations';
 const SAMPLE_PHOTOS = [
   {
     key: 'maleSample',
-    url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=500&auto=format&fit=crop&q=80',
+    url: '/samples/sample-male.jpg',
   },
   {
     key: 'femaleSample',
-    url: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=500&auto=format&fit=crop&q=80',
+    url: '/samples/sample-female.jpg',
   },
   {
     key: 'childSample',
-    url: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=500&auto=format&fit=crop&q=80',
+    url: '/samples/sample-child.jpg',
   }
 ];
 

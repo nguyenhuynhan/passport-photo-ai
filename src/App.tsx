@@ -45,7 +45,7 @@ export default function App() {
 
   // Expose automation test API on window & support ?autotest=true query parameter
   useEffect(() => {
-    const sampleUrl = 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=500&auto=format&fit=crop&q=80';
+    const sampleUrl = '/test-man.jpg';
     
     (window as any).passportTest = {
       setStep: (s: 1 | 2 | 3) => setStep(s),
@@ -69,6 +69,14 @@ export default function App() {
     const params = new URLSearchParams(window.location.search);
     if (params.get('autotest') === 'true' || params.get('autoTest') === 'true') {
       const customPhoto = params.get('photo') || sampleUrl;
+      const presetIdxParam = params.get('presetIndex');
+      if (presetIdxParam !== null) {
+        const presetsList = Object.values(PHOTO_PRESETS);
+        const idx = parseInt(presetIdxParam, 10);
+        if (presetsList[idx]) {
+          setSelectedPreset(presetsList[idx]);
+        }
+      }
       console.log('[AUTOMATION TEST] Auto-selecting photo and transitioning to Step 2:', customPhoto);
       setImageSrc(customPhoto);
       setStep(2);
