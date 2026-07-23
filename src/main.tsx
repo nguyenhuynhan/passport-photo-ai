@@ -34,7 +34,6 @@ if (typeof window !== 'undefined') {
 
   const origError = console.error;
   console.error = (...args: unknown[]) => {
-    if (args.some(isIgnoredMessage)) return;
     origError.apply(console, args);
   };
 

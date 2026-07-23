@@ -38,17 +38,21 @@ export async function initModels(onProgress?: (status: string) => void): Promise
       const selfieModelLocal = `${window.location.origin}/models/selfie_segmenter.tflite`;
       const selfieModelCdn = 'https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float16/1/selfie_segmenter.tflite';
 
+      const isMobile = typeof navigator !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      const preferredDelegate = isMobile ? 'CPU' : 'GPU';
+      const fallbackDelegate = isMobile ? 'GPU' : 'CPU';
+
       onProgress?.('Đang tải mô hình Nhận diện khuôn mặt...');
       const tryLoadFaceDetector = async (modelPath: string) => {
         try {
           return await FaceDetector.createFromOptions(visionTasks, {
-            baseOptions: { modelAssetPath: modelPath, delegate: 'GPU' },
+            baseOptions: { modelAssetPath: modelPath, delegate: preferredDelegate },
             runningMode: 'IMAGE',
             minDetectionConfidence: 0.15,
           });
         } catch {
           return await FaceDetector.createFromOptions(visionTasks, {
-            baseOptions: { modelAssetPath: modelPath, delegate: 'CPU' },
+            baseOptions: { modelAssetPath: modelPath, delegate: fallbackDelegate },
             runningMode: 'IMAGE',
             minDetectionConfidence: 0.15,
           });
@@ -65,14 +69,14 @@ export async function initModels(onProgress?: (status: string) => void): Promise
       onProgress?.('Đang tải mô hình Lưới 3D 478 Điểm (FaceLandmarker)...');
       try {
         faceLandmarker = await FaceLandmarker.createFromOptions(visionTasks, {
-          baseOptions: { modelAssetPath: landmarkerModelCdn, delegate: 'GPU' },
+          baseOptions: { modelAssetPath: landmarkerModelCdn, delegate: preferredDelegate },
           runningMode: 'IMAGE',
           numFaces: 1,
         });
       } catch {
         try {
           faceLandmarker = await FaceLandmarker.createFromOptions(visionTasks, {
-            baseOptions: { modelAssetPath: landmarkerModelCdn, delegate: 'CPU' },
+            baseOptions: { modelAssetPath: landmarkerModelCdn, delegate: fallbackDelegate },
             runningMode: 'IMAGE',
             numFaces: 1,
           });
@@ -85,14 +89,14 @@ export async function initModels(onProgress?: (status: string) => void): Promise
       const tryLoadImageSegmenter = async (modelPath: string) => {
         try {
           return await ImageSegmenter.createFromOptions(visionTasks, {
-            baseOptions: { modelAssetPath: modelPath, delegate: 'GPU' },
+            baseOptions: { modelAssetPath: modelPath, delegate: preferredDelegate },
             runningMode: 'IMAGE',
             outputCategoryMask: false,
             outputConfidenceMasks: true,
           });
         } catch {
           return await ImageSegmenter.createFromOptions(visionTasks, {
-            baseOptions: { modelAssetPath: modelPath, delegate: 'CPU' },
+            baseOptions: { modelAssetPath: modelPath, delegate: fallbackDelegate },
             runningMode: 'IMAGE',
             outputCategoryMask: false,
             outputConfidenceMasks: true,
