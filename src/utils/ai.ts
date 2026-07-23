@@ -260,19 +260,26 @@ export async function segmentHighQuality(
       sourceInput = imageSource.src;
     }
 
-    const blob = await removeBackground(sourceInput, {
-      progress: (key, current, total) => {
-        if (total > 0) {
-          const pct = Math.round((current / total) * 100);
-          onProgress?.(`Đang xử lý mô hình AI RMBG (${pct}%)...`);
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('RMBG processing timeout (15s)')), 15000)
+    );
+
+    const blob = await Promise.race([
+      removeBackground(sourceInput, {
+        progress: (key, current, total) => {
+          if (total > 0) {
+            const pct = Math.round((current / total) * 100);
+            onProgress?.(`Đang xử lý mô hình AI RMBG (${pct}%)...`);
+          }
+        },
+        model: 'isnet_fp16',
+        output: {
+          format: 'image/png',
+          quality: 1.0,
         }
-      },
-      model: 'isnet_fp16',
-      output: {
-        format: 'image/png',
-        quality: 1.0,
-      }
-    });
+      }),
+      timeoutPromise
+    ]);
 
     const img = new Image();
     const url = URL.createObjectURL(blob);

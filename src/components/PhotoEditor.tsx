@@ -262,7 +262,7 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
             maskData = mask.getAsFloat32Array();
             mWidth = mask.width;
             mHeight = mask.height;
-            setActiveEngineUsed('MediaPipe SelfieSegmenter');
+            setActiveEngineUsed(modelChoice === 'rmbg' ? 'MediaPipe (Auto Fallback)' : 'MediaPipe SelfieSegmenter');
           }
         }
 
