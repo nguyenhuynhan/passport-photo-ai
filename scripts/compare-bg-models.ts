@@ -24,11 +24,13 @@ async function runModelComparisonVisualTest() {
     server: { port: 3338, host: 'localhost' },
   });
   await server.listen();
-  const serverUrl = 'http://localhost:3338';
+  const address = server.httpServer?.address();
+  const actualPort = typeof address === 'object' && address ? address.port : 3338;
+  const serverUrl = `http://localhost:${actualPort}`;
 
   const browser = await puppeteer.launch({
     headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-web-security', '--allow-running-insecure-content'],
   });
 
   try {
@@ -44,7 +46,7 @@ async function runModelComparisonVisualTest() {
         const editorTest = (window as any).passportEditorTest;
         return editorTest && !editorTest.isProcessing();
       },
-      { timeout: 25000 }
+      { timeout: 60000 }
     );
     const rmbgTime = Date.now() - startRmbg;
     await new Promise((r) => setTimeout(r, 500));
@@ -69,7 +71,7 @@ async function runModelComparisonVisualTest() {
         const editorTest = (window as any).passportEditorTest;
         return editorTest && !editorTest.isProcessing();
       },
-      { timeout: 25000 }
+      { timeout: 60000 }
     );
     const mediaPipeTime = Date.now() - startMediaPipe;
     await new Promise((r) => setTimeout(r, 500));
