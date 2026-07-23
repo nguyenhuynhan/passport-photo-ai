@@ -499,19 +499,8 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
         const targetHeadCenterPxOnCanvas = (targetHeadCenterPercent / 100) * standardCanvasHeight;
         const normHeadCenterY = (normTopHeadY + normChinY) / 2;
 
-        // Ensure zoom is sufficient so that aligning head center to targetHeadCenterPxOnCanvas covers both top and bottom edges of canvas
-        const minZoomToCoverTop = targetHeadCenterPxOnCanvas / (Math.max(0.10, normHeadCenterY) * iH * baseScale);
-        const minZoomToCoverBottom = (standardCanvasHeight - targetHeadCenterPxOnCanvas) / (Math.max(0.10, 1 - normHeadCenterY) * iH * baseScale);
-        
-        if (isFinite(minZoomToCoverTop) && minZoomToCoverTop > calculatedZoom) {
-          calculatedZoom = minZoomToCoverTop;
-        }
-        if (isFinite(minZoomToCoverBottom) && minZoomToCoverBottom > calculatedZoom) {
-          calculatedZoom = minZoomToCoverBottom;
-        }
-
         const maxAllowedZoom = 10.0;
-        const minAllowedZoom = 0.30;
+        const minAllowedZoom = 0.20;
         const rawZoom = Math.max(minAllowedZoom, Math.min(maxAllowedZoom, calculatedZoom));
         const zoom = isFinite(rawZoom) && rawZoom > 0 ? rawZoom : 1.0;
         const finalScale = baseScale * zoom;

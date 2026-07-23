@@ -57,31 +57,22 @@ export function calculateAutoAdjustments(landmarks: ImageLandmarks, preset = PHO
   const targetHeadCenterPercent = (preset.overlaySpecs.headTopPercent + preset.overlaySpecs.chinPercent) / 2;
   const targetHeadCenterPxOnCanvas = (targetHeadCenterPercent / 100) * standardCanvasHeight;
 
-  // Ensure zoom is sufficient so the scaled image always covers the bottom edge of the canvas (avoiding blank bottom gap)
-  const minZoomToCoverBottom = ((standardCanvasHeight / 2) - (targetHeadCenterPxOnCanvas - standardCanvasHeight / 2)) / (0.5 * sourceHeight * baseScale);
-  if (isFinite(minZoomToCoverBottom) && minZoomToCoverBottom > calculatedZoom) {
-    calculatedZoom = minZoomToCoverBottom;
-  }
-
   const isPortrait = sourceHeight >= sourceWidth;
-  const maxAllowedZoom = isPortrait ? 4.0 : 5.5;
-  const minAllowedZoom = isPortrait ? 0.50 : 0.40;
+  const maxAllowedZoom = isPortrait ? 8.0 : 10.0;
+  const minAllowedZoom = isPortrait ? 0.30 : 0.20;
 
   const rawZoom = Math.max(minAllowedZoom, Math.min(maxAllowedZoom, calculatedZoom));
   const zoom = isFinite(rawZoom) && rawZoom > 0 ? rawZoom : 1.0;
   const finalScale = baseScale * zoom;
 
   const rawOffsetX = (0.5 - normFaceCenterX) * sourceWidth * finalScale;
-  let rawOffsetY = targetHeadCenterPxOnCanvas - (standardCanvasHeight / 2) - (normHeadCenterY - 0.5) * sourceHeight * finalScale;
+  const rawOffsetY = targetHeadCenterPxOnCanvas - (standardCanvasHeight / 2) - (normHeadCenterY - 0.5) * sourceHeight * finalScale;
 
-  // Safety clamp on Y offset to prevent bottom edge of photo from pulling above canvas bottom
-  const maxUpwardOffsetY = (sourceHeight * finalScale / 2) - (standardCanvasHeight / 2);
-  if (rawOffsetY < -maxUpwardOffsetY) {
-    rawOffsetY = -maxUpwardOffsetY;
-  }
+  const maxOffsetX = (sourceWidth * finalScale + standardCanvasWidth) / 2;
+  const maxOffsetY = (sourceHeight * finalScale + standardCanvasHeight) / 2;
 
-  const targetOffsetX = Math.max(-1000, Math.min(1000, isFinite(rawOffsetX) ? rawOffsetX : 0));
-  const targetOffsetY = Math.max(-1000, Math.min(1000, isFinite(rawOffsetY) ? rawOffsetY : 0));
+  const targetOffsetX = Math.max(-maxOffsetX, Math.min(maxOffsetX, isFinite(rawOffsetX) ? rawOffsetX : 0));
+  const targetOffsetY = Math.max(-maxOffsetY, Math.min(maxOffsetY, isFinite(rawOffsetY) ? rawOffsetY : 0));
 
   return {
     zoom: Number(zoom.toFixed(2)),
@@ -136,6 +127,18 @@ export function verifyFullAlignmentOnCanvas(
 }
 
 const TEST_CASES: ImageLandmarks[] = [
+  {
+    name: 'User Mobile Portrait Selfie (1080x1920 Close-up)',
+    width: 1080,
+    height: 1920,
+    normRightEyeX: 0.38,
+    normRightEyeY: 0.28,
+    normLeftEyeX: 0.62,
+    normLeftEyeY: 0.28,
+    normMouthY: 0.52,
+    normTopHeadY: 0.08,
+    normChinY: 0.68,
+  },
   {
     name: 'User Portrait Photo (Elderly Male 768x1024)',
     width: 768,
