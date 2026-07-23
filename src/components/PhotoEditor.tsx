@@ -770,7 +770,6 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', fastMod
               </div>
               <div className="space-y-1.5">
                 <h4 className="font-bold text-slate-100 text-sm tracking-tight">{t.aiProcessingTitle}</h4>
-                <p className="text-xs text-teal-400 font-medium animate-pulse max-w-xs">{aiLog}</p>
               </div>
             </div>
           )}
@@ -927,14 +926,6 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', fastMod
 
           {removeBg && (
             <div className="space-y-4 pt-2 border-t border-slate-800/80">
-              {/* Active AI Model Indicator Badge */}
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-slate-300 font-medium">Mô hình AI đang dùng:</span>
-                <span className="text-[10px] text-teal-400 font-mono bg-teal-950/60 px-2.5 py-0.5 rounded border border-teal-800/50">
-                  {activeEngineUsed}
-                </span>
-              </div>
-
               {/* Edge Feathering & Smoothness Slider */}
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between text-xs">
