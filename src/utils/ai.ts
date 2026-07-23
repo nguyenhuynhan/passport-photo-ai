@@ -4,6 +4,7 @@
  */
 
 import { FilesetResolver, FaceDetector, FaceLandmarker, ImageSegmenter } from '@mediapipe/tasks-vision';
+import { removeBackground } from '@imgly/background-removal';
 
 let visionTasks: any = null;
 let faceDetector: FaceDetector | null = null;
@@ -242,4 +243,158 @@ export async function segmentSelfie(imageElement: HTMLImageElement | HTMLVideoEl
     console.warn('Lỗi khi gọi MediaPipe segmentSelfie:', err);
     return null;
   }
+}
+
+export async function segmentHighQuality(
+  imageSource: HTMLImageElement | HTMLCanvasElement | string,
+  onProgress?: (status: string) => void
+): Promise<{ cutoutCanvas: HTMLCanvasElement; maskData: Float32Array; width: number; height: number } | null> {
+  try {
+    onProgress?.('Đang chạy mô hình AI RMBG tách nền cao cấp...');
+    
+    let sourceInput: string | Blob | HTMLImageElement | HTMLCanvasElement = imageSource;
+    if (imageSource instanceof HTMLImageElement) {
+      if (!imageSource.complete || !imageSource.naturalWidth) {
+        return null;
+      }
+      sourceInput = imageSource.src;
+    }
+
+    const blob = await removeBackground(sourceInput, {
+      progress: (key, current, total) => {
+        if (total > 0) {
+          const pct = Math.round((current / total) * 100);
+          onProgress?.(`Đang xử lý mô hình AI RMBG (${pct}%)...`);
+        }
+      },
+      model: 'isnet_fp16',
+      output: {
+        format: 'image/png',
+        quality: 1.0,
+      }
+    });
+
+    const img = new Image();
+    const url = URL.createObjectURL(blob);
+    await new Promise<void>((resolve, reject) => {
+      img.onload = () => resolve();
+      img.onerror = (e) => reject(e);
+      img.src = url;
+    });
+
+    const width = img.naturalWidth || img.width;
+    const height = img.naturalHeight || img.height;
+
+    const cutoutCanvas = document.createElement('canvas');
+    cutoutCanvas.width = width;
+    cutoutCanvas.height = height;
+    const ctx = cutoutCanvas.getContext('2d', { willReadFrequently: true });
+    if (!ctx) return null;
+
+    ctx.drawImage(img, 0, 0);
+    URL.revokeObjectURL(url);
+
+    const imgData = ctx.getImageData(0, 0, width, height);
+    const data = imgData.data;
+    const maskData = new Float32Array(width * height);
+
+    for (let i = 0; i < maskData.length; i++) {
+      maskData[i] = data[i * 4 + 3] / 255;
+    }
+
+    return {
+      cutoutCanvas,
+      maskData,
+      width,
+      height,
+    };
+  } catch (err) {
+    console.warn('Lỗi khi chạy mô hình RMBG tách nền cao cấp:', err);
+    return null;
+  }
+}
+
+/**
+ * Applies segmentation mask to a canvas using bilinear sampling, smoothstep thresholding, and edge refinement.
+ */
+export function applyHighQualitySegmentationMask(
+  ctx: CanvasRenderingContext2D,
+  workWidth: number,
+  workHeight: number,
+  maskData: Float32Array,
+  maskWidth: number,
+  maskHeight: number,
+  bgColor: string,
+  edgeFeather: number = 0.5
+) {
+  const imgData = ctx.getImageData(0, 0, workWidth, workHeight);
+  const data = imgData.data;
+
+  let bgR = 255, bgG = 255, bgB = 255, bgA = 1;
+  if (bgColor === 'transparent') {
+    bgA = 0;
+  } else {
+    const hex = bgColor.replace('#', '');
+    bgR = parseInt(hex.substring(0, 2), 16);
+    bgG = parseInt(hex.substring(2, 4), 16);
+    bgB = parseInt(hex.substring(4, 6), 16);
+  }
+
+  const lowThreshold = Math.max(0.02, 0.12 - edgeFeather * 0.05);
+  const highThreshold = Math.min(0.98, 0.86 + edgeFeather * 0.05);
+  const thresholdRange = highThreshold - lowThreshold || 1;
+
+  for (let y = 0; y < workHeight; y++) {
+    const yNorm = y / (workHeight - 1 || 1);
+    for (let x = 0; x < workWidth; x++) {
+      const xNorm = x / (workWidth - 1 || 1);
+      const pixelIndex = (y * workWidth + x) * 4;
+
+      // Bilinear mask interpolation for smooth sub-pixel confidence sampling
+      const gx = xNorm * (maskWidth - 1);
+      const gy = yNorm * (maskHeight - 1);
+      const gx0 = Math.floor(gx);
+      const gy0 = Math.floor(gy);
+      const gx1 = Math.min(maskWidth - 1, gx0 + 1);
+      const gy1 = Math.min(maskHeight - 1, gy0 + 1);
+      const tx = gx - gx0;
+      const ty = gy - gy0;
+
+      const c00 = maskData[gy0 * maskWidth + gx0] || 0;
+      const c10 = maskData[gy0 * maskWidth + gx1] || 0;
+      const c01 = maskData[gy1 * maskWidth + gx0] || 0;
+      const c11 = maskData[gy1 * maskWidth + gx1] || 0;
+
+      const rawConfidence = (1 - tx) * (1 - ty) * c00 + tx * (1 - ty) * c10 + (1 - tx) * ty * c01 + tx * ty * c11;
+
+      // Adaptive Sigmoidal / Smoothstep curve to eliminate background artifacts
+      let confidence = 0;
+      if (rawConfidence <= lowThreshold) {
+        confidence = 0;
+      } else if (rawConfidence >= highThreshold) {
+        confidence = 1;
+      } else {
+        const t = (rawConfidence - lowThreshold) / thresholdRange;
+        confidence = t * t * (3 - 2 * t);
+      }
+
+      const origR = data[pixelIndex];
+      const origG = data[pixelIndex + 1];
+      const origB = data[pixelIndex + 2];
+      const origA = data[pixelIndex + 3] / 255;
+
+      const finalAlpha = origA * confidence + bgA * (1 - confidence);
+
+      if (finalAlpha > 0.001) {
+        data[pixelIndex] = Math.round(origR * confidence + bgR * (1 - confidence));
+        data[pixelIndex + 1] = Math.round(origG * confidence + bgG * (1 - confidence));
+        data[pixelIndex + 2] = Math.round(origB * confidence + bgB * (1 - confidence));
+        data[pixelIndex + 3] = Math.round(finalAlpha * 255);
+      } else {
+        data[pixelIndex + 3] = 0;
+      }
+    }
+  }
+
+  ctx.putImageData(imgData, 0, 0);
 }

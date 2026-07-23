@@ -70,6 +70,10 @@ export interface Translations {
   brightness: string;
   contrast: string;
   saturation: string;
+  edgeFeatherLabel: string;
+  aiModelLabel: string;
+  aiModelRmbg: string;
+  aiModelMediaPipe: string;
   nextPrintGrid: string;
 
   // Camera Component
@@ -188,6 +192,10 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     brightness: 'Độ sáng (Brightness)',
     contrast: 'Độ tương phản (Contrast)',
     saturation: 'Độ bão hòa (Saturation)',
+    edgeFeatherLabel: 'Độ mịn đường viền (Feathering)',
+    aiModelLabel: 'Mô hình AI Tách nền:',
+    aiModelRmbg: 'RMBG High-Res (Sắc nét)',
+    aiModelMediaPipe: 'MediaPipe Fast (Nhanh)',
     nextPrintGrid: 'Tiếp tục: Dàn trang In ➜',
 
     cameraLoading: 'Đang khởi động Camera...',
@@ -299,6 +307,10 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     brightness: 'Brightness',
     contrast: 'Contrast',
     saturation: 'Saturation',
+    edgeFeatherLabel: 'Edge Feathering & Softness',
+    aiModelLabel: 'AI Background Model:',
+    aiModelRmbg: 'RMBG High-Res (Ultra Quality)',
+    aiModelMediaPipe: 'MediaPipe Fast (Standard)',
     nextPrintGrid: 'Next: Print Layout ➜',
 
     cameraLoading: 'Starting Camera...',
@@ -410,6 +422,10 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     brightness: '亮度 (Brightness)',
     contrast: '对比度 (Contrast)',
     saturation: '饱和度 (Saturation)',
+    edgeFeatherLabel: '边缘羽化平滑度',
+    aiModelLabel: 'AI 抠图模型：',
+    aiModelRmbg: 'RMBG 高精模型 (高清)',
+    aiModelMediaPipe: 'MediaPipe 快速模型 (标准)',
     nextPrintGrid: '下一步：打印排版 ➜',
 
     cameraLoading: '正在启动摄像头...',

@@ -9,7 +9,7 @@ import {
   Sparkles, RefreshCw, Scissors, Compass, Sun, Eye, EyeOff
 } from 'lucide-react';
 import { PhotoPreset, PassportStandard, ImageAdjustments, DEFAULT_ADJUSTMENTS, BG_COLOR_OPTIONS } from '../types';
-import { detectFace, detectFaceLandmarks, segmentSelfie } from '../utils/ai';
+import { detectFace, detectFaceLandmarks, segmentSelfie, segmentHighQuality, applyHighQualitySegmentationMask } from '../utils/ai';
 import { Language, TRANSLATIONS } from '../locales/translations';
 
 interface PhotoEditorProps {
@@ -59,6 +59,9 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
   const [bgColor, setBgColor] = useState<string>(preset.defaultBgColor);
   const [removeBg, setRemoveBg] = useState<boolean>(true);
   const [showGuide, setShowGuide] = useState<boolean>(true);
+  const [modelChoice, setModelChoice] = useState<'rmbg' | 'mediapipe'>('rmbg');
+  const [edgeFeather, setEdgeFeather] = useState<number>(0.5);
+  const [activeEngineUsed, setActiveEngineUsed] = useState<string>('RMBG IS-Net');
 
   const updateAdjustments = (newAdj: ImageAdjustments | ((prev: ImageAdjustments) => ImageAdjustments)) => {
     setAdjustments((prev) => {
@@ -96,8 +99,12 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
       setBgColor: (col: string) => setBgColor(col),
       isRemoveBg: () => removeBg,
       setRemoveBg: (val: boolean) => setRemoveBg(val),
+      getModelChoice: () => modelChoice,
+      setModelChoice: (choice: 'rmbg' | 'mediapipe') => setModelChoice(choice),
+      getEdgeFeather: () => edgeFeather,
+      setEdgeFeather: (val: number) => setEdgeFeather(val),
     };
-  }, [adjustments, isProcessing, hasCompletedAI, aiLog, faceDetected, bgColor, removeBg]);
+  }, [adjustments, isProcessing, hasCompletedAI, aiLog, faceDetected, bgColor, removeBg, modelChoice, edgeFeather]);
 
   // Helper to emit debounced cropped photo to parent state
   const emitDebouncedCropChange = () => {
@@ -233,14 +240,33 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
 
       try {
         setAiLog(t.aiProcessingStep2);
-        const segmentResult = await segmentSelfie(img);
-        if (aiRunIdRef.current !== effectiveRunId) return;
-        if (segmentResult && segmentResult.confidenceMasks && segmentResult.confidenceMasks.length > 0) {
-          const personMaskIndex = segmentResult.confidenceMasks.length > 1 ? 1 : 0;
-          const mask = segmentResult.confidenceMasks[personMaskIndex];
-          maskData = mask.getAsFloat32Array();
-          mWidth = mask.width;
-          mHeight = mask.height;
+
+        if (modelChoice === 'rmbg') {
+          const rmbgRes = await segmentHighQuality(img, (status) => setAiLog(status));
+          if (aiRunIdRef.current !== effectiveRunId) return;
+          if (rmbgRes) {
+            maskData = rmbgRes.maskData;
+            mWidth = rmbgRes.width;
+            mHeight = rmbgRes.height;
+            setActiveEngineUsed('RMBG IS-Net (High-Res)');
+          }
+        }
+
+        if (!maskData) {
+          setAiLog(t.aiProcessingStep2);
+          const segmentResult = await segmentSelfie(img);
+          if (aiRunIdRef.current !== effectiveRunId) return;
+          if (segmentResult && segmentResult.confidenceMasks && segmentResult.confidenceMasks.length > 0) {
+            const personMaskIndex = segmentResult.confidenceMasks.length > 1 ? 1 : 0;
+            const mask = segmentResult.confidenceMasks[personMaskIndex];
+            maskData = mask.getAsFloat32Array();
+            mWidth = mask.width;
+            mHeight = mask.height;
+            setActiveEngineUsed('MediaPipe SelfieSegmenter');
+          }
+        }
+
+        if (maskData) {
           setSegmentationMask(maskData);
           setMaskWidth(mWidth);
           setMaskHeight(mHeight);
@@ -599,50 +625,16 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
     // Apply segmentation mask if enabled
     if (removeBg && segmentationMask && maskWidth > 0 && maskHeight > 0) {
       try {
-        const imgData = ctx.getImageData(0, 0, workWidth, workHeight);
-        const data = imgData.data;
-
-        // Parse background color hex to RGB
-        let bgR = 255, bgG = 255, bgB = 255, bgA = 1;
-        if (bgColor === 'transparent') {
-          bgA = 0;
-        } else {
-          const hex = bgColor.replace('#', '');
-          bgR = parseInt(hex.substring(0, 2), 16);
-          bgG = parseInt(hex.substring(2, 4), 16);
-          bgB = parseInt(hex.substring(4, 6), 16);
-        }
-
-        // Blend pixels
-        for (let y = 0; y < workHeight; y++) {
-          for (let x = 0; x < workWidth; x++) {
-            const pixelIndex = (y * workWidth + x) * 4;
-
-            const maskX = Math.floor((x / workWidth) * maskWidth);
-            const maskY = Math.floor((y / workHeight) * maskHeight);
-            const maskIndex = maskY * maskWidth + maskX;
-
-            const confidence = segmentationMask[maskIndex] || 0;
-
-            const origR = data[pixelIndex];
-            const origG = data[pixelIndex + 1];
-            const origB = data[pixelIndex + 2];
-            const origA = data[pixelIndex + 3] / 255;
-
-            const finalAlpha = origA * confidence + bgA * (1 - confidence);
-
-            if (finalAlpha > 0) {
-              data[pixelIndex] = Math.round(origR * confidence + bgR * (1 - confidence));
-              data[pixelIndex + 1] = Math.round(origG * confidence + bgG * (1 - confidence));
-              data[pixelIndex + 2] = Math.round(origB * confidence + bgB * (1 - confidence));
-              data[pixelIndex + 3] = Math.round(finalAlpha * 255);
-            } else {
-              data[pixelIndex + 3] = 0;
-            }
-          }
-        }
-
-        ctx.putImageData(imgData, 0, 0);
+        applyHighQualitySegmentationMask(
+          ctx,
+          workWidth,
+          workHeight,
+          segmentationMask,
+          maskWidth,
+          maskHeight,
+          bgColor,
+          edgeFeather
+        );
       } catch (err) {
         console.warn('Không thể đọc dữ liệu điểm ảnh (CORS/Tainted canvas):', err);
       }
@@ -651,7 +643,7 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
     // Redraw the main canvas
     drawMainCanvas();
 
-  }, [loadedImg, imageSrc, removeBg, segmentationMask, bgColor]);
+  }, [loadedImg, imageSrc, removeBg, segmentationMask, bgColor, edgeFeather]);
 
   // Redraw when adjustments change
   useEffect(() => {
@@ -920,24 +912,89 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
           </div>
 
           {removeBg && (
-            <div className="space-y-2">
-              <p className="text-[11px] text-slate-400">Chọn màu phông nền hộ chiếu/visa đúng yêu cầu:</p>
-              <div className="flex flex-wrap gap-2">
-                {BG_COLOR_OPTIONS.map((opt) => (
+            <div className="space-y-4 pt-2 border-t border-slate-800/80">
+              {/* AI Background Removal Model Selection */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-300 font-medium">{t.aiModelLabel}</span>
+                  <span className="text-[10px] text-teal-400 font-mono bg-teal-950/60 px-2 py-0.5 rounded border border-teal-800/50">
+                    {activeEngineUsed}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
                   <button
-                    id={`bg_color_${opt.value.replace('#', '')}_btn`}
-                    key={opt.value}
-                    onClick={() => setBgColor(opt.value)}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border cursor-pointer select-none transition ${
-                      bgColor === opt.value
-                        ? 'ring-2 ring-teal-400 border-teal-500'
-                        : 'hover:bg-slate-800 border-slate-700'
-                    } ${opt.bgClass}`}
+                    id="model_rmbg_btn"
+                    type="button"
+                    onClick={() => {
+                      setModelChoice('rmbg');
+                      const currentImg = loadedImg || originalImageRef.current;
+                      if (currentImg) runAIProcessing(currentImg);
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition cursor-pointer select-none ${
+                      modelChoice === 'rmbg'
+                        ? 'bg-teal-600/20 border-teal-500 text-teal-300 ring-1 ring-teal-500/50'
+                        : 'bg-slate-800/80 border-slate-700 text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                    }`}
                   >
-                    {bgColor === opt.value && <Check className="w-3.5 h-3.5" />}
-                    <span>{opt.name.split(' (')[0]}</span>
+                    ✨ {t.aiModelRmbg}
                   </button>
-                ))}
+                  <button
+                    id="model_mediapipe_btn"
+                    type="button"
+                    onClick={() => {
+                      setModelChoice('mediapipe');
+                      const currentImg = loadedImg || originalImageRef.current;
+                      if (currentImg) runAIProcessing(currentImg);
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition cursor-pointer select-none ${
+                      modelChoice === 'mediapipe'
+                        ? 'bg-teal-600/20 border-teal-500 text-teal-300 ring-1 ring-teal-500/50'
+                        : 'bg-slate-800/80 border-slate-700 text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                    }`}
+                  >
+                    ⚡ {t.aiModelMediaPipe}
+                  </button>
+                </div>
+              </div>
+
+              {/* Edge Feathering & Smoothness Slider */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-300">{t.edgeFeatherLabel}</span>
+                  <span className="text-teal-400 font-mono font-bold">{Math.round(edgeFeather * 100)}%</span>
+                </div>
+                <input
+                  id="edge_feather_range"
+                  type="range"
+                  min="0.0"
+                  max="1.0"
+                  step="0.05"
+                  value={edgeFeather}
+                  onChange={(e) => setEdgeFeather(parseFloat(e.target.value))}
+                  className="w-full accent-teal-400 bg-slate-800"
+                />
+              </div>
+
+              {/* Background Color Palette */}
+              <div className="space-y-2">
+                <p className="text-[11px] text-slate-400">Chọn màu phông nền hộ chiếu/visa đúng yêu cầu:</p>
+                <div className="flex flex-wrap gap-2">
+                  {BG_COLOR_OPTIONS.map((opt) => (
+                    <button
+                      id={`bg_color_${opt.value.replace('#', '')}_btn`}
+                      key={opt.value}
+                      onClick={() => setBgColor(opt.value)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border cursor-pointer select-none transition ${
+                        bgColor === opt.value
+                          ? 'ring-2 ring-teal-400 border-teal-500'
+                          : 'hover:bg-slate-800 border-slate-700'
+                      } ${opt.bgClass}`}
+                    >
+                      {bgColor === opt.value && <Check className="w-3.5 h-3.5" />}
+                      <span>{opt.name.split(' (')[0]}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           )}
