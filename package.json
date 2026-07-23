@@ -10,10 +10,12 @@
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
     "test": "tsx src/utils/ai.test.ts",
+    "test:compare": "tsx src/utils/modelComparison.test.ts",
     "test:alignment": "tsx src/utils/alignmentTest.ts",
     "test:screenshot": "tsx scripts/capture-screenshots.ts",
     "process:sample": "tsx scripts/process-sample-photo.ts",
-    "process:user": "tsx scripts/process-user-photo.ts"
+    "process:user": "tsx scripts/process-user-photo.ts",
+    "process:compare": "tsx scripts/compare-bg-models.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

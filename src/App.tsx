@@ -79,6 +79,9 @@ export default function App() {
           setSelectedPreset(presetsList[idx]);
         }
       }
+      if (params.get('fastMode') === 'true' || params.get('fast') === 'true') {
+        setFastMode(true);
+      }
       console.log('[AUTOMATION TEST] Auto-selecting photo and transitioning to Step 2:', customPhoto);
       setImageSrc(customPhoto);
       setStep(2);
