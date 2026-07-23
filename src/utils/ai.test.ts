@@ -89,7 +89,7 @@ const MANUAL_GROUND_TRUTH: ImageAdjustments = {
   zoom: 1.69,
   rotation: 0,
   offsetX: 0,
-  offsetY: 53,
+  offsetY: 125,
   brightness: 100,
   contrast: 100,
   saturation: 100,

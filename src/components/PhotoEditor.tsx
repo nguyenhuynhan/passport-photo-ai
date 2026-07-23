@@ -50,13 +50,23 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
   // Offscreen canvas for background segmentation blending
   const segmentedCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const cropTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const aiRunIdRef = useRef<number>(0);
 
   // States
   const [adjustments, setAdjustments] = useState<ImageAdjustments>({ ...DEFAULT_ADJUSTMENTS });
+  const adjustmentsRef = useRef<ImageAdjustments>({ ...DEFAULT_ADJUSTMENTS });
   const [initialAdjustments, setInitialAdjustments] = useState<ImageAdjustments | null>(null);
   const [bgColor, setBgColor] = useState<string>(preset.defaultBgColor);
   const [removeBg, setRemoveBg] = useState<boolean>(true);
   const [showGuide, setShowGuide] = useState<boolean>(true);
+
+  const updateAdjustments = (newAdj: ImageAdjustments | ((prev: ImageAdjustments) => ImageAdjustments)) => {
+    setAdjustments((prev) => {
+      const next = typeof newAdj === 'function' ? newAdj(prev) : newAdj;
+      adjustmentsRef.current = next;
+      return next;
+    });
+  };
   
   // AI processing states
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
@@ -75,8 +85,8 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
   // Expose Editor Automation Test API
   useEffect(() => {
     (window as any).passportEditorTest = {
-      getAdjustments: () => adjustments,
-      setAdjustments: (adj: Partial<ImageAdjustments>) => setAdjustments((prev) => ({ ...prev, ...adj })),
+      getAdjustments: () => adjustmentsRef.current,
+      setAdjustments: (adj: Partial<ImageAdjustments>) => updateAdjustments((prev) => ({ ...prev, ...adj })),
       isProcessing: () => isProcessing,
       hasCompletedAI: () => hasCompletedAI,
       getAiLog: () => aiLog,
@@ -112,8 +122,9 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
   useEffect(() => {
     setBgColor(preset.defaultBgColor);
     const currentImg = loadedImg || originalImageRef.current;
-    if (currentImg && currentImg.width && currentImg.height) {
-      runAIProcessing(currentImg);
+    if (currentImg && (currentImg.naturalWidth || currentImg.width)) {
+      const currentRunId = ++aiRunIdRef.current;
+      runAIProcessing(currentImg, currentRunId);
     }
   }, [preset]);
 
@@ -121,15 +132,41 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
   useEffect(() => {
     if (!imageSrc) return;
 
+    const currentRunId = ++aiRunIdRef.current;
+
     // Reset previous image states
     setLoadedImg(null);
     originalImageRef.current = null;
     setSegmentationMask(null);
     setFaceDetected(false);
     setInitialAdjustments(null);
-    setAdjustments({ ...DEFAULT_ADJUSTMENTS });
+    updateAdjustments({ ...DEFAULT_ADJUSTMENTS });
 
     let createdBlobUrl: string | null = null;
+
+    const processLoadedImage = async (img: HTMLImageElement) => {
+      if (aiRunIdRef.current !== currentRunId) return;
+
+      originalImageRef.current = img;
+      setImgWidth(img.naturalWidth || img.width);
+      setImgHeight(img.naturalHeight || img.height);
+      setLoadedImg(img);
+
+      // Immediately render base image to offscreen canvas so preview shows right away
+      if (!segmentedCanvasRef.current) {
+        segmentedCanvasRef.current = document.createElement('canvas');
+      }
+      const segCanvas = segmentedCanvasRef.current;
+      segCanvas.width = img.naturalWidth || img.width;
+      segCanvas.height = img.naturalHeight || img.height;
+      const ctx = segCanvas.getContext('2d', { willReadFrequently: true });
+      if (ctx) {
+        ctx.drawImage(img, 0, 0);
+      }
+
+      // Run AI
+      await runAIProcessing(img, currentRunId);
+    };
 
     const loadImageSafely = async () => {
       const img = new Image();
@@ -146,34 +183,22 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
         }
       }
 
-      img.src = effectiveSrc;
-
-      img.onload = async () => {
-        originalImageRef.current = img;
-        setImgWidth(img.width);
-        setImgHeight(img.height);
-        setLoadedImg(img);
-
-        // Immediately render base image to offscreen canvas so preview shows right away
-        if (!segmentedCanvasRef.current) {
-          segmentedCanvasRef.current = document.createElement('canvas');
-        }
-        const segCanvas = segmentedCanvasRef.current;
-        segCanvas.width = img.width;
-        segCanvas.height = img.height;
-        const ctx = segCanvas.getContext('2d', { willReadFrequently: true });
-        if (ctx) {
-          ctx.drawImage(img, 0, 0);
-        }
-
-        // Run AI
-        await runAIProcessing(img);
+      // Assign handlers BEFORE setting src
+      img.onload = () => {
+        processLoadedImage(img);
       };
 
       img.onerror = (err) => {
         console.error('Lỗi khi tải ảnh:', err);
         setIsProcessing(false);
       };
+
+      img.src = effectiveSrc;
+
+      // Handle immediate cache hit / complete image
+      if (img.complete && (img.naturalWidth > 0 || img.width > 0)) {
+        processLoadedImage(img);
+      }
     };
 
     loadImageSafely();
@@ -186,14 +211,19 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
   }, [imageSrc]);
 
   // Run face detection and segmentation with Hybrid Alignment algorithm
-  const runAIProcessing = async (img: HTMLImageElement) => {
-    if (!img || !img.width || !img.height) return;
+  const runAIProcessing = async (img: HTMLImageElement, runId?: number) => {
+    const effectiveRunId = runId ?? aiRunIdRef.current;
+    const iW = img.naturalWidth || img.width;
+    const iH = img.naturalHeight || img.height;
+    if (!img || !iW || !iH) return;
 
     setIsProcessing(true);
     setHasCompletedAI(false);
     setAiLog(t.aiProcessingStep1);
     // Yield to browser UI thread so loading spinner renders immediately
     await new Promise((r) => setTimeout(r, 60));
+
+    if (aiRunIdRef.current !== effectiveRunId) return;
 
     try {
       // 1. Run Segmentation
@@ -204,6 +234,7 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
       try {
         setAiLog(t.aiProcessingStep2);
         const segmentResult = await segmentSelfie(img);
+        if (aiRunIdRef.current !== effectiveRunId) return;
         if (segmentResult && segmentResult.confidenceMasks && segmentResult.confidenceMasks.length > 0) {
           const personMaskIndex = segmentResult.confidenceMasks.length > 1 ? 1 : 0;
           const mask = segmentResult.confidenceMasks[personMaskIndex];
@@ -232,6 +263,7 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
 
         // 1. Primary High Precision: MediaPipe 478 3D Mesh FaceLandmarker (Pupil Iris & Chin Tip Detection)
         const landmarkerRes = await detectFaceLandmarks(img);
+        if (aiRunIdRef.current !== effectiveRunId) return;
         if (landmarkerRes && landmarkerRes.landmarksResult && landmarkerRes.landmarksResult.faceLandmarks.length > 0) {
           const lms = landmarkerRes.landmarksResult.faceLandmarks[0];
           const sW = landmarkerRes.sourceWidth;
@@ -302,6 +334,7 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
         // 2. Secondary Fallback: FaceDetector (6 keypoints) if FaceLandmarker did not return 478 mesh
         if (!faceFound) {
           const detectRes = await detectFace(img);
+          if (aiRunIdRef.current !== effectiveRunId) return;
           const { faceResult, sourceWidth, sourceHeight } = detectRes;
 
           if (faceResult && faceResult.detections && faceResult.detections.length > 0) {
@@ -436,16 +469,18 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
       }
 
       // 4. Default Fallback for standard portrait if neither face detection nor segmentation found face
+      let isTrueFaceFound = faceFound;
       if (!faceFound) {
         faceFound = true;
+        isTrueFaceFound = false;
         normFaceCenterX = 0.50;
         normEyeCenterY = 0.35;
         normFullHeadHeight = 0.38;
       }
 
       if (faceFound) {
-        setFaceDetected(true);
-        setAiLog(t.aiFaceFound);
+        setFaceDetected(isTrueFaceFound);
+        setAiLog(isTrueFaceFound ? t.aiFaceFound : t.aiNoFace);
 
         const standardCanvasHeight = 1800;
         const standardCanvasWidth = Math.round(standardCanvasHeight * preset.aspectRatio);
@@ -454,8 +489,8 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
         const targetHeadHeightPercent = (preset.overlaySpecs.chinPercent - preset.overlaySpecs.headTopPercent) / 100;
         const targetHeadHeightPx = standardCanvasHeight * targetHeadHeightPercent;
 
-        const baseScale = Math.min(standardCanvasWidth / img.width, standardCanvasHeight / img.height);
-        const headScaleNeeded = targetHeadHeightPx / (normFullHeadHeight * img.height);
+        const baseScale = Math.min(standardCanvasWidth / iW, standardCanvasHeight / iH);
+        const headScaleNeeded = targetHeadHeightPx / (normFullHeadHeight * iH);
         
         let calculatedZoom = headScaleNeeded / baseScale;
 
@@ -465,8 +500,8 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
         const normHeadCenterY = (normTopHeadY + normChinY) / 2;
 
         // Ensure zoom is sufficient so that aligning head center to targetHeadCenterPxOnCanvas covers both top and bottom edges of canvas
-        const minZoomToCoverTop = targetHeadCenterPxOnCanvas / (Math.max(0.10, normHeadCenterY) * img.height * baseScale);
-        const minZoomToCoverBottom = (standardCanvasHeight - targetHeadCenterPxOnCanvas) / (Math.max(0.10, 1 - normHeadCenterY) * img.height * baseScale);
+        const minZoomToCoverTop = targetHeadCenterPxOnCanvas / (Math.max(0.10, normHeadCenterY) * iH * baseScale);
+        const minZoomToCoverBottom = (standardCanvasHeight - targetHeadCenterPxOnCanvas) / (Math.max(0.10, 1 - normHeadCenterY) * iH * baseScale);
         
         if (isFinite(minZoomToCoverTop) && minZoomToCoverTop > calculatedZoom) {
           calculatedZoom = minZoomToCoverTop;
@@ -485,8 +520,8 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
         const rad = (safeRotation * Math.PI) / 180;
 
         // Account for face displacement caused by image rotation around its center
-        const dxImageCenter = (normFaceCenterX - 0.5) * img.width;
-        const dyImageCenter = (normHeadCenterY - 0.5) * img.height;
+        const dxImageCenter = (normFaceCenterX - 0.5) * iW;
+        const dyImageCenter = (normHeadCenterY - 0.5) * iH;
 
         const dxRotated = dxImageCenter * Math.cos(rad) - dyImageCenter * Math.sin(rad);
         const dyRotated = dxImageCenter * Math.sin(rad) + dyImageCenter * Math.cos(rad);
@@ -494,8 +529,8 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
         const rawOffsetX = -dxRotated * finalScale;
         const rawOffsetY = targetHeadCenterPxOnCanvas - (standardCanvasHeight / 2) - dyRotated * finalScale;
 
-        const maxOffsetX = (img.width * finalScale + standardCanvasWidth) / 2;
-        const maxOffsetY = (img.height * finalScale + standardCanvasHeight) / 2;
+        const maxOffsetX = (iW * finalScale + standardCanvasWidth) / 2;
+        const maxOffsetY = (iH * finalScale + standardCanvasHeight) / 2;
 
         const targetOffsetX = Math.max(-maxOffsetX, Math.min(maxOffsetX, isFinite(rawOffsetX) ? rawOffsetX : 0));
         const targetOffsetY = Math.max(-maxOffsetY, Math.min(maxOffsetY, isFinite(rawOffsetY) ? rawOffsetY : 0));
@@ -507,31 +542,40 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
           offsetX: Number(targetOffsetX.toFixed(0)),
           offsetY: Number(targetOffsetY.toFixed(0)),
         };
-        setAdjustments(computedAdjustments);
-        setInitialAdjustments(computedAdjustments);
+
+        if (aiRunIdRef.current === effectiveRunId) {
+          updateAdjustments(computedAdjustments);
+          setInitialAdjustments(computedAdjustments);
+          drawMainCanvas(computedAdjustments);
+        }
       } else {
         setFaceDetected(false);
         setAiLog(t.aiNoFace);
-        setInitialAdjustments({ ...DEFAULT_ADJUSTMENTS });
+        const defaultAdj = { ...DEFAULT_ADJUSTMENTS };
+        if (aiRunIdRef.current === effectiveRunId) {
+          updateAdjustments(defaultAdj);
+          setInitialAdjustments(defaultAdj);
+          drawMainCanvas(defaultAdj);
+        }
       }
     } catch (err) {
       console.error('Lỗi khi chạy mô hình AI cục bộ:', err);
     } finally {
-      setIsProcessing(false);
-      setHasCompletedAI(true);
-      setTimeout(() => {
-        drawMainCanvas();
-      }, 50);
+      if (aiRunIdRef.current === effectiveRunId) {
+        setIsProcessing(false);
+        setHasCompletedAI(true);
+        setTimeout(() => {
+          drawMainCanvas();
+        }, 50);
+      }
     }
   };
 
   // Restore initial AI alignment calculation
   const restoreInitialAlign = () => {
-    if (initialAdjustments) {
-      setAdjustments({ ...initialAdjustments });
-    } else {
-      setAdjustments({ ...DEFAULT_ADJUSTMENTS });
-    }
+    const target = initialAdjustments ? { ...initialAdjustments } : { ...DEFAULT_ADJUSTMENTS };
+    updateAdjustments(target);
+    drawMainCanvas(target);
   };
 
   // Generate the segmented image on offscreen canvas whenever original image, mask, removeBg state, or bgColor changes
@@ -622,13 +666,15 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
   }, [adjustments, showGuide, preset]);
 
   // Main drawing logic
-  const drawMainCanvas = () => {
+  const drawMainCanvas = (overrideAdjustments?: ImageAdjustments) => {
     const displayCanvas = displayCanvasRef.current;
     const segCanvas = segmentedCanvasRef.current;
     if (!displayCanvas || !segCanvas || !segCanvas.width || !segCanvas.height) return;
 
     const ctx = displayCanvas.getContext('2d');
     if (!ctx) return;
+
+    const currentAdj = overrideAdjustments || adjustmentsRef.current || adjustments;
 
     const outputHeight = 1800;
     const outputWidth = Math.round(outputHeight * preset.aspectRatio);
@@ -648,13 +694,13 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
       ctx.fillRect(0, 0, outputWidth, outputHeight);
     }
 
-    const safeZoom = isFinite(adjustments.zoom) && adjustments.zoom > 0 ? adjustments.zoom : 1.0;
-    const safeRotation = isFinite(adjustments.rotation) ? adjustments.rotation : 0;
-    const safeOffsetX = isFinite(adjustments.offsetX) ? adjustments.offsetX : 0;
-    const safeOffsetY = isFinite(adjustments.offsetY) ? adjustments.offsetY : 0;
-    const safeBrightness = isFinite(adjustments.brightness) ? adjustments.brightness : 100;
-    const safeContrast = isFinite(adjustments.contrast) ? adjustments.contrast : 100;
-    const safeSaturation = isFinite(adjustments.saturation) ? adjustments.saturation : 100;
+    const safeZoom = isFinite(currentAdj.zoom) && currentAdj.zoom > 0 ? currentAdj.zoom : 1.0;
+    const safeRotation = isFinite(currentAdj.rotation) ? currentAdj.rotation : 0;
+    const safeOffsetX = isFinite(currentAdj.offsetX) ? currentAdj.offsetX : 0;
+    const safeOffsetY = isFinite(currentAdj.offsetY) ? currentAdj.offsetY : 0;
+    const safeBrightness = isFinite(currentAdj.brightness) ? currentAdj.brightness : 100;
+    const safeContrast = isFinite(currentAdj.contrast) ? currentAdj.contrast : 100;
+    const safeSaturation = isFinite(currentAdj.saturation) ? currentAdj.saturation : 100;
 
     ctx.filter = `brightness(${safeBrightness}%) contrast(${safeContrast}%) saturate(${safeSaturation}%)`;
 
@@ -682,7 +728,7 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
 
   // Handle adjustments update
   const handleSliderChange = (key: keyof ImageAdjustments, val: number) => {
-    setAdjustments((prev) => ({
+    updateAdjustments((prev) => ({
       ...prev,
       [key]: val,
     }));
@@ -690,7 +736,9 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
 
   // Reset Adjustments
   const resetAllAdjustments = () => {
-    setAdjustments({ ...DEFAULT_ADJUSTMENTS });
+    const target = { ...DEFAULT_ADJUSTMENTS };
+    updateAdjustments(target);
+    drawMainCanvas(target);
   };
 
   // Trigger final export
@@ -891,7 +939,7 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
                       bgColor === opt.value
                         ? 'ring-2 ring-teal-400 border-teal-500'
                         : 'hover:bg-slate-800 border-slate-700'
-                    } ${opt.label}`}
+                    } ${opt.bgClass}`}
                   >
                     {bgColor === opt.value && <Check className="w-3.5 h-3.5" />}
                     <span>{opt.name.split(' (')[0]}</span>

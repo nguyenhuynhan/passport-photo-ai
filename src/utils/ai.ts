@@ -119,9 +119,9 @@ function getElementDimensions(el: HTMLImageElement | HTMLVideoElement | HTMLCanv
     return { width: el.width, height: el.height };
   }
   if (el instanceof HTMLVideoElement) {
-    return { width: el.videoWidth || el.width || 600, height: el.videoHeight || el.height || 600 };
+    return { width: el.videoWidth || el.width || 0, height: el.videoHeight || el.height || 0 };
   }
-  return { width: el.naturalWidth || el.width || 600, height: el.naturalHeight || el.height || 600 };
+  return { width: el.naturalWidth || el.width || 0, height: el.naturalHeight || el.height || 0 };
 }
 
 function ensureCanvasSource(imageElement: HTMLImageElement | HTMLVideoElement | HTMLCanvasElement): HTMLCanvasElement | HTMLVideoElement {
@@ -129,14 +129,21 @@ function ensureCanvasSource(imageElement: HTMLImageElement | HTMLVideoElement | 
     return imageElement;
   }
 
-  const canvas = document.createElement('canvas');
   const dims = getElementDimensions(imageElement);
-  
+  if (dims.width <= 0 || dims.height <= 0) {
+    // Return empty 1x1 canvas if image dimensions are not loaded yet
+    const emptyCanvas = document.createElement('canvas');
+    emptyCanvas.width = 1;
+    emptyCanvas.height = 1;
+    return emptyCanvas;
+  }
+
+  const canvas = document.createElement('canvas');
   const maxDim = Math.max(dims.width, dims.height);
   const scale = maxDim > 1280 ? 1280 / maxDim : 1;
   
-  canvas.width = Math.round(dims.width * scale);
-  canvas.height = Math.round(dims.height * scale);
+  canvas.width = Math.max(1, Math.round(dims.width * scale));
+  canvas.height = Math.max(1, Math.round(dims.height * scale));
   
   const ctx = canvas.getContext('2d');
   if (ctx) {

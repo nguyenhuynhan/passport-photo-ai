@@ -80,7 +80,7 @@ async function runScreenshotAutomation() {
     console.log(`\n  Scenario ${i + 1}/${testScenarios.length}: ${scenario.name} (${scenario.device})`);
 
     const page = await browser.newPage();
-    page.on('pageerror', (err) => console.log('    ⚠️ [PAGE ERROR]', err.message));
+    page.on('pageerror', (err: any) => console.log('    ⚠️ [PAGE ERROR]', err.message || err));
     await page.setViewport(scenario.viewport);
 
     // Navigate with autotest query param and scenario presetIndex
