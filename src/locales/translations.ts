@@ -71,9 +71,8 @@ export interface Translations {
   contrast: string;
   saturation: string;
   edgeFeatherLabel: string;
-  aiModelLabel: string;
-  aiModelRmbg: string;
-  aiModelMediaPipe: string;
+  fastModeLabel: string;
+  fastModeDesc: string;
   nextPrintGrid: string;
 
   // Camera Component
@@ -193,9 +192,8 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     contrast: 'Độ tương phản (Contrast)',
     saturation: 'Độ bão hòa (Saturation)',
     edgeFeatherLabel: 'Độ mịn đường viền (Feathering)',
-    aiModelLabel: 'Mô hình AI Tách nền:',
-    aiModelRmbg: 'RMBG High-Res (Sắc nét)',
-    aiModelMediaPipe: 'MediaPipe Fast (Nhanh)',
+    fastModeLabel: 'Xử lý nhanh',
+    fastModeDesc: 'Giảm chất lượng tách nền một chút, nhưng nhanh và phù hợp cho máy yếu',
     nextPrintGrid: 'Tiếp tục: Dàn trang In ➜',
 
     cameraLoading: 'Đang khởi động Camera...',
@@ -308,9 +306,8 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     contrast: 'Contrast',
     saturation: 'Saturation',
     edgeFeatherLabel: 'Edge Feathering & Softness',
-    aiModelLabel: 'AI Background Model:',
-    aiModelRmbg: 'RMBG High-Res (Ultra Quality)',
-    aiModelMediaPipe: 'MediaPipe Fast (Standard)',
+    fastModeLabel: 'Fast Processing Mode',
+    fastModeDesc: 'Slightly reduced quality, but faster and suitable for low-spec devices',
     nextPrintGrid: 'Next: Print Layout ➜',
 
     cameraLoading: 'Starting Camera...',
@@ -423,9 +420,8 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     contrast: '对比度 (Contrast)',
     saturation: '饱和度 (Saturation)',
     edgeFeatherLabel: '边缘羽化平滑度',
-    aiModelLabel: 'AI 抠图模型：',
-    aiModelRmbg: 'RMBG 高精模型 (高清)',
-    aiModelMediaPipe: 'MediaPipe 快速模型 (标准)',
+    fastModeLabel: '快速处理模式',
+    fastModeDesc: '稍微降低抠图质量，但速度更快且适合低配设备',
     nextPrintGrid: '下一步：打印排版 ➜',
 
     cameraLoading: '正在启动摄像头...',

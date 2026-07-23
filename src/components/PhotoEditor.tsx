@@ -16,10 +16,11 @@ interface PhotoEditorProps {
   imageSrc: string;
   preset: PhotoPreset;
   language?: Language;
+  fastMode?: boolean;
   onCropChange: (outputBase64: string) => void;
 }
 
-export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropChange }: PhotoEditorProps) {
+export default function PhotoEditor({ imageSrc, preset, language = 'vi', fastMode = false, onCropChange }: PhotoEditorProps) {
   const t = TRANSLATIONS[language];
 
   const getPresetName = (presetId: PassportStandard) => {
@@ -71,14 +72,20 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
     });
   };
   
-  // AI processing states
+  // AI processing states & single monotonic progress bar (0% -> 100%)
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [hasCompletedAI, setHasCompletedAI] = useState<boolean>(false);
+  const [aiProgressPct, setAiProgressPct] = useState<number>(0);
   const [aiLog, setAiLog] = useState<string>('');
   const [faceDetected, setFaceDetected] = useState<boolean>(false);
   const [segmentationMask, setSegmentationMask] = useState<Float32Array | null>(null);
   const [maskWidth, setMaskWidth] = useState<number>(0);
   const [maskHeight, setMaskHeight] = useState<number>(0);
+
+  const updateProgress = (pct: number, statusMessage: string) => {
+    setAiProgressPct((prev) => Math.max(prev, Math.min(100, Math.round(pct))));
+    setAiLog(statusMessage);
+  };
 
   // Dimensions of original loaded image
   const [imgWidth, setImgWidth] = useState<number>(0);
@@ -99,12 +106,11 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
       setBgColor: (col: string) => setBgColor(col),
       isRemoveBg: () => removeBg,
       setRemoveBg: (val: boolean) => setRemoveBg(val),
-      getModelChoice: () => modelChoice,
-      setModelChoice: (choice: 'rmbg' | 'mediapipe') => setModelChoice(choice),
+      isFastMode: () => !!fastMode,
       getEdgeFeather: () => edgeFeather,
       setEdgeFeather: (val: number) => setEdgeFeather(val),
     };
-  }, [adjustments, isProcessing, hasCompletedAI, aiLog, faceDetected, bgColor, removeBg, modelChoice, edgeFeather]);
+  }, [adjustments, isProcessing, hasCompletedAI, aiLog, faceDetected, bgColor, removeBg, fastMode, edgeFeather]);
 
   // Helper to emit debounced cropped photo to parent state
   const emitDebouncedCropChange = () => {
@@ -226,7 +232,8 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
 
     setIsProcessing(true);
     setHasCompletedAI(false);
-    setAiLog(t.aiProcessingStep1);
+    setAiProgressPct(0);
+    updateProgress(5, t.aiProcessingStep1);
     // Yield to browser UI thread so loading spinner renders immediately
     await new Promise((r) => setTimeout(r, 60));
 
@@ -237,23 +244,28 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
       let maskData: Float32Array | null = null;
       let mWidth = 0;
       let mHeight = 0;
+      const isFast = !!fastMode;
 
       try {
-        setAiLog(t.aiProcessingStep2);
+        if (!isFast) {
+          updateProgress(10, 'Đang tải & chuẩn bị mô hình AI RMBG...');
+          const rmbgRes = await segmentHighQuality(img, (stagePct, statusText) => {
+            const overall = 10 + Math.round((stagePct / 100) * 45);
+            updateProgress(overall, `${statusText} (${overall}%)`);
+          });
 
-        if (modelChoice === 'rmbg') {
-          const rmbgRes = await segmentHighQuality(img, (status) => setAiLog(status));
           if (aiRunIdRef.current !== effectiveRunId) return;
           if (rmbgRes) {
             maskData = rmbgRes.maskData;
             mWidth = rmbgRes.width;
             mHeight = rmbgRes.height;
             setActiveEngineUsed('RMBG IS-Net (High-Res)');
+            updateProgress(55, 'Đã hoàn tất phân tách phông nền!');
           }
         }
 
         if (!maskData) {
-          setAiLog(t.aiProcessingStep2);
+          updateProgress(isFast ? 25 : 45, isFast ? 'Đang tách nền bằng MediaPipe Fast...' : 'Tự động chuyển sang MediaPipe Fast...');
           const segmentResult = await segmentSelfie(img);
           if (aiRunIdRef.current !== effectiveRunId) return;
           if (segmentResult && segmentResult.confidenceMasks && segmentResult.confidenceMasks.length > 0) {
@@ -262,7 +274,8 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
             maskData = mask.getAsFloat32Array();
             mWidth = mask.width;
             mHeight = mask.height;
-            setActiveEngineUsed(modelChoice === 'rmbg' ? 'MediaPipe (Auto Fallback)' : 'MediaPipe SelfieSegmenter');
+            setActiveEngineUsed(isFast ? 'MediaPipe (Fast Mode)' : 'MediaPipe (Auto Fallback)');
+            updateProgress(55, 'Đã hoàn tất phân tách phông nền!');
           }
         }
 
@@ -285,7 +298,7 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
       let rotationAngle = 0;
 
       try {
-        setAiLog(t.aiProcessingStep3);
+        updateProgress(65, t.aiProcessingStep3);
 
         // 1. Primary High Precision: MediaPipe 478 3D Mesh FaceLandmarker (Pupil Iris & Chin Tip Detection)
         const landmarkerRes = await detectFaceLandmarks(img);
@@ -510,7 +523,7 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
 
       if (faceFound) {
         setFaceDetected(isTrueFaceFound);
-        setAiLog(isTrueFaceFound ? t.aiFaceFound : t.aiNoFace);
+        updateProgress(90, isTrueFaceFound ? t.aiFaceFound : t.aiNoFace);
 
         const standardCanvasHeight = 1800;
         const standardCanvasWidth = Math.round(standardCanvasHeight * preset.aspectRatio);
@@ -569,7 +582,7 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
         }
       } else {
         setFaceDetected(false);
-        setAiLog(t.aiNoFace);
+        updateProgress(90, t.aiNoFace);
         const defaultAdj = { ...DEFAULT_ADJUSTMENTS };
         if (aiRunIdRef.current === effectiveRunId) {
           updateAdjustments(defaultAdj);
@@ -581,6 +594,7 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
       console.error('Lỗi khi chạy mô hình AI cục bộ:', err);
     } finally {
       if (aiRunIdRef.current === effectiveRunId) {
+        updateProgress(100, 'Hoàn tất!');
         setIsProcessing(false);
         setHasCompletedAI(true);
         setTimeout(() => {
@@ -747,16 +761,28 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
           ref={containerRef}
           className="relative rounded-2xl overflow-hidden shadow-2xl border border-slate-800 bg-slate-950 flex items-center justify-center p-6 w-full max-w-[380px] md:max-w-[420px]"
         >
-          {/* AI Busy indicator with glassmorphism overlay */}
+          {/* AI Busy indicator with glassmorphism overlay and single monotonic progress bar */}
           {isProcessing && (
             <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center text-center gap-4 p-6 z-20 transition-all duration-300">
               <div className="relative flex items-center justify-center">
                 <div className="w-16 h-16 rounded-full border-4 border-teal-500/20 border-t-teal-400 animate-spin" />
                 <Sparkles className="w-6 h-6 text-teal-400 absolute animate-pulse" />
               </div>
-              <div className="space-y-1.5">
+              <div className="space-y-3 w-full max-w-xs">
                 <h4 className="font-bold text-slate-100 text-sm tracking-tight">{t.aiProcessingTitle}</h4>
-                <p className="text-xs text-teal-400 font-medium animate-pulse max-w-xs">{aiLog}</p>
+                
+                {/* Single Monotonic Progress Bar */}
+                <div className="w-full bg-slate-900 border border-slate-800 h-2.5 rounded-full overflow-hidden p-0.5 shadow-inner">
+                  <div 
+                    className="bg-gradient-to-r from-teal-500 to-emerald-400 h-full rounded-full transition-all duration-300 ease-out"
+                    style={{ width: `${Math.max(5, aiProgressPct)}%` }}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between text-[11px] font-mono text-teal-400 font-semibold px-1">
+                  <span className="truncate max-w-[210px] text-left">{aiLog}</span>
+                  <span className="shrink-0 font-bold">{aiProgressPct}%</span>
+                </div>
               </div>
             </div>
           )}
@@ -913,48 +939,12 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
 
           {removeBg && (
             <div className="space-y-4 pt-2 border-t border-slate-800/80">
-              {/* AI Background Removal Model Selection */}
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-slate-300 font-medium">{t.aiModelLabel}</span>
-                  <span className="text-[10px] text-teal-400 font-mono bg-teal-950/60 px-2 py-0.5 rounded border border-teal-800/50">
-                    {activeEngineUsed}
-                  </span>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    id="model_rmbg_btn"
-                    type="button"
-                    onClick={() => {
-                      setModelChoice('rmbg');
-                      const currentImg = loadedImg || originalImageRef.current;
-                      if (currentImg) runAIProcessing(currentImg);
-                    }}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition cursor-pointer select-none ${
-                      modelChoice === 'rmbg'
-                        ? 'bg-teal-600/20 border-teal-500 text-teal-300 ring-1 ring-teal-500/50'
-                        : 'bg-slate-800/80 border-slate-700 text-slate-400 hover:text-slate-200 hover:bg-slate-800'
-                    }`}
-                  >
-                    ✨ {t.aiModelRmbg}
-                  </button>
-                  <button
-                    id="model_mediapipe_btn"
-                    type="button"
-                    onClick={() => {
-                      setModelChoice('mediapipe');
-                      const currentImg = loadedImg || originalImageRef.current;
-                      if (currentImg) runAIProcessing(currentImg);
-                    }}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition cursor-pointer select-none ${
-                      modelChoice === 'mediapipe'
-                        ? 'bg-teal-600/20 border-teal-500 text-teal-300 ring-1 ring-teal-500/50'
-                        : 'bg-slate-800/80 border-slate-700 text-slate-400 hover:text-slate-200 hover:bg-slate-800'
-                    }`}
-                  >
-                    ⚡ {t.aiModelMediaPipe}
-                  </button>
-                </div>
+              {/* Active AI Model Indicator Badge */}
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-slate-300 font-medium">Mô hình AI đang dùng:</span>
+                <span className="text-[10px] text-teal-400 font-mono bg-teal-950/60 px-2.5 py-0.5 rounded border border-teal-800/50">
+                  {activeEngineUsed}
+                </span>
               </div>
 
               {/* Edge Feathering & Smoothness Slider */}

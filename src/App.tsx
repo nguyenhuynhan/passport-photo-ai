@@ -26,6 +26,8 @@ export default function App() {
   const [customWidth, setCustomWidth] = useState<number>(40);
   const [customHeight, setCustomHeight] = useState<number>(40);
   const [customFacePct, setCustomFacePct] = useState<number>(70);
+  // Fast mode processing state (default: false -> RMBG best model)
+  const [fastMode, setFastMode] = useState<boolean>(false);
 
   // Photo source states
   const [imageSrc, setImageSrc] = useState<string | null>(null);
@@ -288,6 +290,8 @@ export default function App() {
             setCustomFacePct={setCustomFacePct}
             onPhotoSelected={handlePhotoSelected}
             language={language}
+            fastMode={fastMode}
+            setFastMode={setFastMode}
           />
         )}
 
@@ -305,6 +309,7 @@ export default function App() {
               imageSrc={imageSrc} 
               preset={selectedPreset} 
               language={language}
+              fastMode={fastMode}
               onCropChange={handleCropChange} 
             />
           </div>
