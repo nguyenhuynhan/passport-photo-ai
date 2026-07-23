@@ -15,7 +15,8 @@
     "test:screenshot": "tsx scripts/capture-screenshots.ts",
     "process:sample": "tsx scripts/process-sample-photo.ts",
     "process:user": "tsx scripts/process-user-photo.ts",
-    "process:compare": "tsx scripts/compare-bg-models.ts"
+    "process:compare": "tsx scripts/compare-bg-models.ts",
+    "pixel:compare": "tsx scripts/pixel-compare-models.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
