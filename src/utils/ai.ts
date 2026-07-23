@@ -247,10 +247,11 @@ export async function segmentSelfie(imageElement: HTMLImageElement | HTMLVideoEl
 
 export async function segmentHighQuality(
   imageSource: HTMLImageElement | HTMLCanvasElement | string,
-  onProgress?: (progressPct: number, status: string) => void
+  onProgress?: (progressPct: number, status: string) => void,
+  modelType: 'isnet_fp16' | 'isnet_quint8' = 'isnet_fp16'
 ): Promise<{ cutoutCanvas: HTMLCanvasElement; maskData: Float32Array; width: number; height: number } | null> {
   try {
-    onProgress?.(0, 'Đang chuẩn bị mô hình AI RMBG...');
+    onProgress?.(0, `Đang chuẩn bị mô hình AI RMBG (${modelType})...`);
     
     let sourceInput: string | Blob = typeof imageSource === 'string' ? imageSource : '';
     if (imageSource instanceof HTMLImageElement) {
@@ -273,10 +274,10 @@ export async function segmentHighQuality(
         progress: (key, current, total) => {
           if (total > 0) {
             const pct = Math.round((current / total) * 100);
-            onProgress?.(pct, `Đang tải mô hình AI RMBG...`);
+            onProgress?.(pct, `Đang tải mô hình AI RMBG (${modelType})...`);
           }
         },
-        model: 'isnet_fp16',
+        model: modelType,
         output: {
           format: 'image/png',
           quality: 1.0,

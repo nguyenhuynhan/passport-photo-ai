@@ -248,18 +248,24 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', fastMod
 
       try {
         if (!isFast) {
-          updateProgress(10, 'Đang tải & chuẩn bị mô hình AI RMBG IS-Net...');
-          const rmbgRes = await segmentHighQuality(img, (stagePct, statusText) => {
-            const overall = 10 + Math.round((stagePct / 100) * 45);
-            updateProgress(overall, `${statusText} (${overall}%)`);
-          });
+          const urlParams = new URLSearchParams(window.location.search);
+          const requestedModel = (urlParams.get('modelType') as 'isnet_fp16' | 'isnet_quint8') || 'isnet_fp16';
+          updateProgress(10, `Đang tải & chuẩn bị mô hình AI RMBG (${requestedModel})...`);
+          const rmbgRes = await segmentHighQuality(
+            img,
+            (stagePct, statusText) => {
+              const overall = 10 + Math.round((stagePct / 100) * 45);
+              updateProgress(overall, `${statusText} (${overall}%)`);
+            },
+            requestedModel
+          );
 
           if (aiRunIdRef.current !== effectiveRunId) return;
           if (rmbgRes) {
             maskData = rmbgRes.maskData;
             mWidth = rmbgRes.width;
             mHeight = rmbgRes.height;
-            setActiveEngineUsed('RMBG IS-Net (High-Res Precision)');
+            setActiveEngineUsed(`RMBG IS-Net (${requestedModel === 'isnet_fp16' ? 'FP16 Heavy' : 'Quint8 Quantized'})`);
             updateProgress(55, 'Đã hoàn tất phân tách phông nền!');
           }
         }

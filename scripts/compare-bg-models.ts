@@ -10,15 +10,15 @@ import fs from 'fs';
 
 const LOCAL_SCREENSHOT_DIR = path.resolve(process.cwd(), 'screenshots');
 
-async function runModelComparisonVisualTest() {
+async function runModelComparisonSuite() {
   console.log('===========================================================');
-  console.log('PASSPORT PHOTO AI - AUTOMATED MODEL COMPARISON SUITE');
+  console.log('PASSPORT PHOTO AI - AUTOMATED 3-MODEL COMPARISON SUITE');
   console.log('===========================================================\n');
 
   fs.mkdirSync(LOCAL_SCREENSHOT_DIR, { recursive: true });
 
   // 1. Start local Vite server
-  console.log('[1/4] Starting local Vite server on port 3338...');
+  console.log('[1/5] Starting local Vite server on port 3338...');
   const server = await createServer({
     configFile: path.resolve(process.cwd(), 'vite.config.ts'),
     server: { port: 3338, host: 'localhost' },
@@ -34,65 +34,87 @@ async function runModelComparisonVisualTest() {
   });
 
   try {
-    // 2. Capture RMBG IS-Net (High-Res Mode)
-    console.log('[2/4] Capturing Model 1: RMBG IS-Net (High-Res Precision)...');
-    const pageRmbg = await browser.newPage();
-    pageRmbg.on('console', (msg) => console.log('  [BROWSER LOG]:', msg.text()));
-    pageRmbg.on('pageerror', (err) => console.error('  [BROWSER ERROR]:', err));
-    await pageRmbg.setViewport({ width: 1280, height: 900, deviceScaleFactor: 1 });
-    const startRmbg = Date.now();
-    await pageRmbg.goto(`${serverUrl}?autotest=true&fastMode=false`, { waitUntil: 'domcontentloaded' });
+    // 2. Capture Model 1: RMBG IS-Net FP16 (Heavy / Full Precision)
+    console.log('[2/5] Capturing Model 1: RMBG IS-Net FP16 (Heavy / Slow Precision)...');
+    const pageFp16 = await browser.newPage();
+    await pageFp16.setViewport({ width: 1280, height: 900, deviceScaleFactor: 1 });
+    const startFp16 = Date.now();
+    await pageFp16.goto(`${serverUrl}?autotest=true&fastMode=false&modelType=isnet_fp16`, { waitUntil: 'domcontentloaded' });
 
-    await pageRmbg.waitForFunction(
+    await pageFp16.waitForFunction(
       () => {
         const editorTest = (window as any).passportEditorTest;
         return editorTest && editorTest.hasCompletedAI() === true && !editorTest.isProcessing();
       },
-      { timeout: 60000 }
+      { timeout: 90000 }
     );
-    const rmbgTime = Date.now() - startRmbg;
-    await new Promise((r) => setTimeout(r, 1200));
+    const fp16Time = Date.now() - startFp16;
+    await new Promise((r) => setTimeout(r, 1000));
 
-    const rmbgScreenshotPath = path.join(LOCAL_SCREENSHOT_DIR, 'compare_model_1_rmbg_isnet.png');
-    const editorEl1 = await pageRmbg.$('#photo_editor_section');
+    const fp16ScreenshotPath = path.join(LOCAL_SCREENSHOT_DIR, 'compare_model_1_rmbg_fp16.png');
+    const editorEl1 = await pageFp16.$('#photo_editor_section');
     if (editorEl1) {
-      await editorEl1.screenshot({ path: rmbgScreenshotPath });
+      await editorEl1.screenshot({ path: fp16ScreenshotPath });
     }
-    console.log(`  ✅ RMBG IS-Net Result Saved: screenshots/compare_model_1_rmbg_isnet.png (${rmbgTime}ms)`);
-    await pageRmbg.close();
+    console.log(`  ✅ Model 1 Saved: screenshots/compare_model_1_rmbg_fp16.png (${fp16Time}ms)`);
+    await pageFp16.close();
 
-    // 3. Capture MediaPipe (Fast Mode)
-    console.log('[3/4] Capturing Model 2: MediaPipe SelfieSegmenter (Fast Mode)...');
-    const pageMediaPipe = await browser.newPage();
-    await pageMediaPipe.setViewport({ width: 1280, height: 900, deviceScaleFactor: 1 });
-    const startMediaPipe = Date.now();
-    await pageMediaPipe.goto(`${serverUrl}?autotest=true&fastMode=true`, { waitUntil: 'domcontentloaded' });
+    // 3. Capture Model 2: RMBG IS-Net Quantized (Optimized High-Res)
+    console.log('[3/5] Capturing Model 2: RMBG IS-Net Quint8 (Optimized High-Res)...');
+    const pageQuint8 = await browser.newPage();
+    await pageQuint8.setViewport({ width: 1280, height: 900, deviceScaleFactor: 1 });
+    const startQuint8 = Date.now();
+    await pageQuint8.goto(`${serverUrl}?autotest=true&fastMode=false&modelType=isnet_quint8`, { waitUntil: 'domcontentloaded' });
 
-    await pageMediaPipe.waitForFunction(
+    await pageQuint8.waitForFunction(
+      () => {
+        const editorTest = (window as any).passportEditorTest;
+        return editorTest && editorTest.hasCompletedAI() === true && !editorTest.isProcessing();
+      },
+      { timeout: 90000 }
+    );
+    const quint8Time = Date.now() - startQuint8;
+    await new Promise((r) => setTimeout(r, 1000));
+
+    const quint8ScreenshotPath = path.join(LOCAL_SCREENSHOT_DIR, 'compare_model_2_rmbg_quint8.png');
+    const editorEl2 = await pageQuint8.$('#photo_editor_section');
+    if (editorEl2) {
+      await editorEl2.screenshot({ path: quint8ScreenshotPath });
+    }
+    console.log(`  ✅ Model 2 Saved: screenshots/compare_model_2_rmbg_quint8.png (${quint8Time}ms)`);
+    await pageQuint8.close();
+
+    // 4. Capture Model 3: MediaPipe Fast Mode (256x256 MobileNet)
+    console.log('[4/5] Capturing Model 3: MediaPipe SelfieSegmenter (Fast Mode 256x256)...');
+    const pageFast = await browser.newPage();
+    await pageFast.setViewport({ width: 1280, height: 900, deviceScaleFactor: 1 });
+    const startFast = Date.now();
+    await pageFast.goto(`${serverUrl}?autotest=true&fastMode=true`, { waitUntil: 'domcontentloaded' });
+
+    await pageFast.waitForFunction(
       () => {
         const editorTest = (window as any).passportEditorTest;
         return editorTest && editorTest.hasCompletedAI() === true && !editorTest.isProcessing();
       },
       { timeout: 60000 }
     );
-    const mediaPipeTime = Date.now() - startMediaPipe;
-    await new Promise((r) => setTimeout(r, 1200));
+    const fastTime = Date.now() - startFast;
+    await new Promise((r) => setTimeout(r, 1000));
 
-    const mediaPipeScreenshotPath = path.join(LOCAL_SCREENSHOT_DIR, 'compare_model_2_mediapipe_fast.png');
-    const editorEl2 = await pageMediaPipe.$('#photo_editor_section');
-    if (editorEl2) {
-      await editorEl2.screenshot({ path: mediaPipeScreenshotPath });
+    const fastScreenshotPath = path.join(LOCAL_SCREENSHOT_DIR, 'compare_model_3_mediapipe_fast.png');
+    const editorEl3 = await pageFast.$('#photo_editor_section');
+    if (editorEl3) {
+      await editorEl3.screenshot({ path: fastScreenshotPath });
     }
-    console.log(`  ✅ MediaPipe Fast Result Saved: screenshots/compare_model_2_mediapipe_fast.png (${mediaPipeTime}ms)`);
-    await pageMediaPipe.close();
+    console.log(`  ✅ Model 3 Saved: screenshots/compare_model_3_mediapipe_fast.png (${fastTime}ms)`);
+    await pageFast.close();
 
-    // 4. Output Summary
-    console.log('\n[4/4] COMPARISON REPORT SUMMARY:');
+    // 5. Output Benchmark Report Summary
+    console.log('\n[5/5] BENCHMARK COMPARISON REPORT:');
     console.log('-----------------------------------------------------------');
-    console.log(`• Model 1 (RMBG IS-Net): 1024x1024 High-Res Neural Matting | Execution time: ~${rmbgTime}ms`);
-    console.log(`• Model 2 (MediaPipe Fast): 256x256 MobileNet Segmentation | Execution time: ~${mediaPipeTime}ms`);
-    console.log('• Spatial Resolution Ratio: RMBG provides 16.0x higher mask resolution (1,048,576 vs 65,536 px)');
-    console.log('• Edge Precision: RMBG preserves fine hair strands & clothing contours without 256px blockiness.');
+    console.log(`• Model 1 (RMBG FP16 Heavy): 1024x1024 Full Floating Point Matting | ~${fp16Time}ms`);
+    console.log(`• Model 2 (RMBG Quint8 Fast): 1024x1024 Quantized Precision Matting | ~${quint8Time}ms`);
+    console.log(`• Model 3 (MediaPipe Fast): 256x256 MobileNet Fast Segmentation | ~${fastTime}ms`);
     console.log('-----------------------------------------------------------');
 
   } finally {
@@ -100,10 +122,10 @@ async function runModelComparisonVisualTest() {
     await server.close();
   }
 
-  console.log('\n🎉 MODEL COMPARISON TEST COMPLETED SUCCESSFULLY!');
+  console.log('\n🎉 ALL 3 MODELS COMPARISON TEST COMPLETED SUCCESSFULLY!');
 }
 
-runModelComparisonVisualTest().catch((err) => {
+runModelComparisonSuite().catch((err) => {
   console.error('❌ Comparison script failed:', err);
   process.exit(1);
 });
