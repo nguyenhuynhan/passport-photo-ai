@@ -44,12 +44,12 @@ async function runModelComparisonVisualTest() {
     await pageRmbg.waitForFunction(
       () => {
         const editorTest = (window as any).passportEditorTest;
-        return editorTest && !editorTest.isProcessing();
+        return editorTest && editorTest.hasCompletedAI() === true && !editorTest.isProcessing();
       },
       { timeout: 60000 }
     );
     const rmbgTime = Date.now() - startRmbg;
-    await new Promise((r) => setTimeout(r, 500));
+    await new Promise((r) => setTimeout(r, 1200));
 
     const rmbgScreenshotPath = path.join(LOCAL_SCREENSHOT_DIR, 'compare_model_1_rmbg_isnet.png');
     const editorEl1 = await pageRmbg.$('#photo_editor_section');
@@ -69,12 +69,12 @@ async function runModelComparisonVisualTest() {
     await pageMediaPipe.waitForFunction(
       () => {
         const editorTest = (window as any).passportEditorTest;
-        return editorTest && !editorTest.isProcessing();
+        return editorTest && editorTest.hasCompletedAI() === true && !editorTest.isProcessing();
       },
       { timeout: 60000 }
     );
     const mediaPipeTime = Date.now() - startMediaPipe;
-    await new Promise((r) => setTimeout(r, 500));
+    await new Promise((r) => setTimeout(r, 1200));
 
     const mediaPipeScreenshotPath = path.join(LOCAL_SCREENSHOT_DIR, 'compare_model_2_mediapipe_fast.png');
     const editorEl2 = await pageMediaPipe.$('#photo_editor_section');
