@@ -57,6 +57,7 @@ export interface Translations {
   toggleGuides: string;
   resetTransform: string;
   autoAlignBtn: string;
+  highQualitySegmentationBtn: string;
   aiProcessingTitle: string;
   aiProcessingStep1: string;
   aiProcessingStep2: string;
@@ -178,6 +179,7 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     toggleGuides: 'Đường hướng dẫn',
     resetTransform: 'Đặt lại mặc định',
     autoAlignBtn: 'Khôi phục căn chỉnh AI',
+    highQualitySegmentationBtn: 'Tách nền nâng cao (AI)',
     aiProcessingTitle: 'AI Đang Xử Lý Cục Bộ...',
     aiProcessingStep1: 'Phân tích khuôn mặt & trục mắt...',
     aiProcessingStep2: 'Tách phông nền chân dung bằng AI...',
@@ -292,6 +294,7 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     toggleGuides: 'Toggle Guidelines',
     resetTransform: 'Reset Adjustments',
     autoAlignBtn: 'Restore AI Alignment',
+    highQualitySegmentationBtn: 'High Precision Matting (AI)',
     aiProcessingTitle: 'AI Processing Locally...',
     aiProcessingStep1: 'Analyzing face & eye line...',
     aiProcessingStep2: 'Removing portrait background...',
@@ -406,6 +409,7 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     toggleGuides: '辅助线开关',
     resetTransform: '重置调整',
     autoAlignBtn: '恢复 AI 对齐',
+    highQualitySegmentationBtn: '高级AI抠图 (Precision)',
     aiProcessingTitle: 'AI 正在本地处理...',
     aiProcessingStep1: '正在分析人脸与眼线...',
     aiProcessingStep2: '正在分割人像背景...',

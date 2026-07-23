@@ -32,8 +32,6 @@ interface Step1SelectPhotoProps {
   setCustomFacePct: (val: number) => void;
   onPhotoSelected: (imageSrc: string) => void;
   language: Language;
-  fastMode: boolean;
-  setFastMode: (val: boolean) => void;
 }
 
 export default function Step1SelectPhoto({
@@ -47,8 +45,6 @@ export default function Step1SelectPhoto({
   setCustomFacePct,
   onPhotoSelected,
   language,
-  fastMode,
-  setFastMode,
 }: Step1SelectPhotoProps) {
   const t = TRANSLATIONS[language];
   const [cameraMode, setCameraMode] = useState<boolean>(false);
@@ -356,23 +352,7 @@ export default function Step1SelectPhoto({
             </button>
           )}
 
-          {/* Fast Processing Mode Checkbox (positioned right below camera button) */}
-          <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 flex items-start gap-3 shadow-sm select-none transition hover:border-slate-700">
-            <input
-              id="fast_mode_checkbox"
-              type="checkbox"
-              checked={fastMode}
-              onChange={(e) => setFastMode(e.target.checked)}
-              className="mt-0.5 w-4 h-4 accent-teal-400 bg-slate-950 border-slate-700 rounded cursor-pointer shrink-0"
-            />
-            <label htmlFor="fast_mode_checkbox" className="cursor-pointer space-y-0.5 min-w-0">
-              <span className="font-semibold text-slate-200 text-xs flex items-center gap-1.5">
-                <Zap className="w-3.5 h-3.5 text-yellow-400 shrink-0" />
-                {t.fastModeLabel}
-              </span>
-              <p className="text-[11px] text-slate-400 leading-relaxed">{t.fastModeDesc}</p>
-            </label>
-          </div>
+
         </div>
 
         {/* Right Sample Testing Card */}

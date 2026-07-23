@@ -224,7 +224,7 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', fastMod
   }, [imageSrc]);
 
   // Run face detection and segmentation with Hybrid Alignment algorithm
-  const runAIProcessing = async (img: HTMLImageElement, runId?: number) => {
+  const runAIProcessing = async (img: HTMLImageElement, runId?: number, overrideFastMode?: boolean) => {
     const effectiveRunId = runId ?? aiRunIdRef.current;
     const iW = img.naturalWidth || img.width;
     const iH = img.naturalHeight || img.height;
@@ -244,7 +244,7 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', fastMod
       let maskData: Float32Array | null = null;
       let mWidth = 0;
       let mHeight = 0;
-      const isFast = !!fastMode;
+      const isFast = overrideFastMode !== undefined ? overrideFastMode : !!fastMode;
 
       try {
         if (!isFast) {
@@ -848,7 +848,7 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', fastMod
         </div>
 
         {/* Floating actions under preview */}
-        <div className="flex flex-wrap gap-2 w-full max-w-[360px] justify-center">
+        <div className="flex flex-wrap gap-2 w-full max-w-[480px] justify-center">
           <button
             id="restore_initial_align_btn"
             onClick={restoreInitialAlign}
@@ -857,6 +857,21 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', fastMod
           >
             <Sparkles className="w-3.5 h-3.5 text-teal-400" />
             <span>{t.autoAlignBtn}</span>
+          </button>
+
+          <button
+            id="high_precision_matting_btn"
+            onClick={() => {
+              if (originalImageRef.current) {
+                runAIProcessing(originalImageRef.current, ++aiRunIdRef.current, false);
+              }
+            }}
+            disabled={isProcessing}
+            title="Tách nền nâng cao bằng RMBG IS-Net (1024x1024) cho viền tóc siêu sắc nét"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/30 border border-indigo-500/40 rounded-lg text-xs font-semibold transition active:scale-95 disabled:opacity-50 shadow-sm cursor-pointer"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-indigo-400 animate-pulse" />
+            <span>{t.highQualitySegmentationBtn}</span>
           </button>
 
           <button
