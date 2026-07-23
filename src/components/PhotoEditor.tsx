@@ -761,28 +761,16 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', fastMod
           ref={containerRef}
           className="relative rounded-2xl overflow-hidden shadow-2xl border border-slate-800 bg-slate-950 flex items-center justify-center p-6 w-full max-w-[380px] md:max-w-[420px]"
         >
-          {/* AI Busy indicator with glassmorphism overlay and single monotonic progress bar */}
+          {/* AI Busy indicator with glassmorphism overlay */}
           {isProcessing && (
             <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center text-center gap-4 p-6 z-20 transition-all duration-300">
               <div className="relative flex items-center justify-center">
                 <div className="w-16 h-16 rounded-full border-4 border-teal-500/20 border-t-teal-400 animate-spin" />
                 <Sparkles className="w-6 h-6 text-teal-400 absolute animate-pulse" />
               </div>
-              <div className="space-y-3 w-full max-w-xs">
+              <div className="space-y-1.5">
                 <h4 className="font-bold text-slate-100 text-sm tracking-tight">{t.aiProcessingTitle}</h4>
-                
-                {/* Single Monotonic Progress Bar */}
-                <div className="w-full bg-slate-900 border border-slate-800 h-2.5 rounded-full overflow-hidden p-0.5 shadow-inner">
-                  <div 
-                    className="bg-gradient-to-r from-teal-500 to-emerald-400 h-full rounded-full transition-all duration-300 ease-out"
-                    style={{ width: `${Math.max(5, aiProgressPct)}%` }}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between text-[11px] font-mono text-teal-400 font-semibold px-1">
-                  <span className="truncate max-w-[210px] text-left">{aiLog}</span>
-                  <span className="shrink-0 font-bold">{aiProgressPct}%</span>
-                </div>
+                <p className="text-xs text-teal-400 font-medium animate-pulse max-w-xs">{aiLog}</p>
               </div>
             </div>
           )}
