@@ -248,7 +248,7 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', fastMod
 
       try {
         if (!isFast) {
-          updateProgress(10, 'Đang tải & chuẩn bị mô hình AI RMBG...');
+          updateProgress(10, 'Đang tải & chuẩn bị mô hình AI RMBG IS-Net...');
           const rmbgRes = await segmentHighQuality(img, (stagePct, statusText) => {
             const overall = 10 + Math.round((stagePct / 100) * 45);
             updateProgress(overall, `${statusText} (${overall}%)`);
@@ -259,7 +259,7 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', fastMod
             maskData = rmbgRes.maskData;
             mWidth = rmbgRes.width;
             mHeight = rmbgRes.height;
-            setActiveEngineUsed('RMBG IS-Net (High-Res)');
+            setActiveEngineUsed('RMBG IS-Net (High-Res Precision)');
             updateProgress(55, 'Đã hoàn tất phân tách phông nền!');
           }
         }

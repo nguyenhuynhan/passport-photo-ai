@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
+    "@huggingface/transformers": "^4.2.0",
     "@imgly/background-removal": "^1.7.0",
     "@mediapipe/tasks-vision": "^0.10.35",
     "@tailwindcss/vite": "^4.1.14",
@@ -27,6 +28,7 @@
     "express": "^4.21.2",
     "lucide-react": "^0.546.0",
     "motion": "^12.23.24",
+    "onnxruntime-web": "^1.21.0-dev.20250206-d981b153d3",
     "react": "^19.0.1",
     "react-dom": "^19.0.1"
   },

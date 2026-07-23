@@ -37,6 +37,8 @@ async function runModelComparisonVisualTest() {
     // 2. Capture RMBG IS-Net (High-Res Mode)
     console.log('[2/4] Capturing Model 1: RMBG IS-Net (High-Res Precision)...');
     const pageRmbg = await browser.newPage();
+    pageRmbg.on('console', (msg) => console.log('  [BROWSER LOG]:', msg.text()));
+    pageRmbg.on('pageerror', (err) => console.error('  [BROWSER ERROR]:', err));
     await pageRmbg.setViewport({ width: 1280, height: 900, deviceScaleFactor: 1 });
     const startRmbg = Date.now();
     await pageRmbg.goto(`${serverUrl}?autotest=true&fastMode=false`, { waitUntil: 'domcontentloaded' });

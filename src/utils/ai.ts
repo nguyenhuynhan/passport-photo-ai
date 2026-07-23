@@ -252,16 +252,20 @@ export async function segmentHighQuality(
   try {
     onProgress?.(0, 'Đang chuẩn bị mô hình AI RMBG...');
     
-    let sourceInput: string | Blob | HTMLImageElement | HTMLCanvasElement = imageSource;
+    let sourceInput: string | Blob = typeof imageSource === 'string' ? imageSource : '';
     if (imageSource instanceof HTMLImageElement) {
       if (!imageSource.complete || !imageSource.naturalWidth) {
         return null;
       }
       sourceInput = imageSource.src;
+    } else if (imageSource instanceof HTMLCanvasElement) {
+      const canvasBlob = await new Promise<Blob | null>((resolve) => imageSource.toBlob(resolve, 'image/png'));
+      if (!canvasBlob) return null;
+      sourceInput = canvasBlob;
     }
 
     const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error('RMBG processing timeout (15s)')), 15000)
+      setTimeout(() => reject(new Error('RMBG processing timeout (90s)')), 90000)
     );
 
     const blob = await Promise.race([
@@ -306,7 +310,16 @@ export async function segmentHighQuality(
     const maskData = new Float32Array(width * height);
 
     for (let i = 0; i < maskData.length; i++) {
-      maskData[i] = data[i * 4 + 3] / 255;
+      const rawAlpha = data[i * 4 + 3] / 255;
+      // Aggressive background noise cutoff (rawAlpha < 0.55) to eliminate grey wall artifacts
+      if (rawAlpha < 0.55) {
+        maskData[i] = 0;
+      } else if (rawAlpha > 0.85) {
+        maskData[i] = 1;
+      } else {
+        const t = (rawAlpha - 0.55) / 0.30;
+        maskData[i] = t * t * (3 - 2 * t);
+      }
     }
 
     return {
@@ -320,6 +333,8 @@ export async function segmentHighQuality(
     return null;
   }
 }
+
+
 
 /**
  * Applies segmentation mask to a canvas using bilinear sampling, smoothstep thresholding, and edge refinement.
@@ -374,15 +389,31 @@ export function applyHighQualitySegmentationMask(
 
       const rawConfidence = (1 - tx) * (1 - ty) * c00 + tx * (1 - ty) * c10 + (1 - tx) * ty * c01 + tx * ty * c11;
 
-      // Adaptive Sigmoidal / Smoothstep curve to eliminate background artifacts
+      // Color-Guided Alpha Refinement for spotless background output
       let confidence = 0;
-      if (rawConfidence <= lowThreshold) {
+      const bgCutoff = Math.max(0.18, 0.25 - edgeFeather * 0.08);
+      const fgCutoff = Math.min(0.92, 0.65 + edgeFeather * 0.10);
+
+      if (rawConfidence <= bgCutoff) {
         confidence = 0;
-      } else if (rawConfidence >= highThreshold) {
+      } else if (rawConfidence >= fgCutoff) {
         confidence = 1;
       } else {
-        const t = (rawConfidence - lowThreshold) / thresholdRange;
-        confidence = t * t * (3 - 2 * t);
+        const normT = (rawConfidence - bgCutoff) / (fgCutoff - bgCutoff || 1);
+        const smoothT = normT * normT * (3 - 2 * normT);
+
+        // Color-guided edge matting: evaluate color distance to background wall
+        const origR = data[pixelIndex];
+        const origG = data[pixelIndex + 1];
+        const origB = data[pixelIndex + 2];
+        const colorDiffToBg = Math.hypot(origR - bgR, origG - bgG, origB - bgB);
+
+        if (colorDiffToBg < 32 && bgColor !== 'transparent') {
+          // Pixel color matches background wall closely => clean up background noise
+          confidence = smoothT * Math.pow(colorDiffToBg / 32, 1.5);
+        } else {
+          confidence = smoothT;
+        }
       }
 
       const origR = data[pixelIndex];
