@@ -40,8 +40,13 @@ export function calculateAutoAdjustments(landmarks: ImageLandmarks, preset = PHO
   const rotationAngle = Math.max(-15, Math.min(15, rawAngle));
 
   const normFaceCenterX = (normRightEyeX + normLeftEyeX) / 2;
-  const normHeadCenterY = (normTopHeadY + normChinY) / 2;
-  const normFullHeadHeight = Math.max(0.18, normChinY - normTopHeadY);
+  const normEyeCenterY = (normRightEyeY + normLeftEyeY) / 2;
+  const eyeToChin = Math.max(0.10, normChinY - normEyeCenterY);
+  
+  // Cap max hair height to 1.15x eye-to-chin distance so tall hair does not distort anatomical head center
+  const effectiveTopHeadY = Math.max(normEyeCenterY - 1.15 * eyeToChin, normTopHeadY);
+  const normHeadCenterY = (effectiveTopHeadY + normChinY) / 2;
+  const normFullHeadHeight = Math.max(0.18, normChinY - effectiveTopHeadY);
 
   const standardCanvasHeight = 1800;
   const standardCanvasWidth = Math.round(standardCanvasHeight * preset.aspectRatio);

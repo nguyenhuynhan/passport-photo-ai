@@ -327,6 +327,8 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
               }
             }
 
+            const effectiveTopHeadY = Math.max(normEyeCenterY - 1.15 * eyeToChin, normTopHeadY);
+            normTopHeadY = effectiveTopHeadY;
             normFullHeadHeight = Math.max(0.18, normChinY - normTopHeadY);
           }
         }
@@ -431,6 +433,8 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', onCropC
                 }
               }
 
+              const effectiveTopHeadY = Math.max(normEyeCenterY - 1.15 * eyeToChin, normTopHeadY);
+              normTopHeadY = effectiveTopHeadY;
               normFullHeadHeight = Math.max(0.20, normChinY - normTopHeadY);
             }
           }
