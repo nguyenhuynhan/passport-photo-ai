@@ -20,53 +20,59 @@ export async function initModels(onProgress?: (status: string) => void): Promise
     try {
       onProgress?.('Đang tải công cụ xử lý (WASM)...');
       
-      const wasmPath = `${window.location.origin}/wasm`;
-      visionTasks = await FilesetResolver.forVisionTasks(wasmPath);
+      const localWasmPath = `${window.location.origin}/wasm`;
+      const cdnWasmPath = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm';
 
-      const faceModelPath = `${window.location.origin}/models/blaze_face_short_range.tflite`;
-      const landmarkerModelPath = `${window.location.origin}/models/face_landmarker.task`;
-      const selfieModelPath = `${window.location.origin}/models/selfie_segmenter.tflite`;
+      try {
+        visionTasks = await FilesetResolver.forVisionTasks(localWasmPath);
+      } catch (wasmErr) {
+        console.warn('Không thể tải WASM cục bộ, chuyển sang CDN:', wasmErr);
+        visionTasks = await FilesetResolver.forVisionTasks(cdnWasmPath);
+      }
+
+      const faceModelLocal = `${window.location.origin}/models/blaze_face_short_range.tflite`;
+      const faceModelCdn = 'https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite';
+
+      const landmarkerModelCdn = 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task';
+
+      const selfieModelLocal = `${window.location.origin}/models/selfie_segmenter.tflite`;
+      const selfieModelCdn = 'https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float16/1/selfie_segmenter.tflite';
 
       onProgress?.('Đang tải mô hình Nhận diện khuôn mặt...');
+      const tryLoadFaceDetector = async (modelPath: string) => {
+        try {
+          return await FaceDetector.createFromOptions(visionTasks, {
+            baseOptions: { modelAssetPath: modelPath, delegate: 'GPU' },
+            runningMode: 'IMAGE',
+            minDetectionConfidence: 0.15,
+          });
+        } catch {
+          return await FaceDetector.createFromOptions(visionTasks, {
+            baseOptions: { modelAssetPath: modelPath, delegate: 'CPU' },
+            runningMode: 'IMAGE',
+            minDetectionConfidence: 0.15,
+          });
+        }
+      };
+
       try {
-        faceDetector = await FaceDetector.createFromOptions(visionTasks, {
-          baseOptions: {
-            modelAssetPath: faceModelPath,
-            delegate: 'GPU',
-          },
-          runningMode: 'IMAGE',
-          minDetectionConfidence: 0.15,
-        });
-      } catch (gpuError) {
-        console.warn('Không khởi tạo được GPU delegate cho FaceDetector, chuyển sang CPU:', gpuError);
-        faceDetector = await FaceDetector.createFromOptions(visionTasks, {
-          baseOptions: {
-            modelAssetPath: faceModelPath,
-            delegate: 'CPU',
-          },
-          runningMode: 'IMAGE',
-          minDetectionConfidence: 0.15,
-        });
+        faceDetector = await tryLoadFaceDetector(faceModelLocal);
+      } catch {
+        console.warn('Không tải được FaceDetector local, dùng CDN...');
+        faceDetector = await tryLoadFaceDetector(faceModelCdn);
       }
 
       onProgress?.('Đang tải mô hình Lưới 3D 478 Điểm (FaceLandmarker)...');
       try {
         faceLandmarker = await FaceLandmarker.createFromOptions(visionTasks, {
-          baseOptions: {
-            modelAssetPath: landmarkerModelPath,
-            delegate: 'GPU',
-          },
+          baseOptions: { modelAssetPath: landmarkerModelCdn, delegate: 'GPU' },
           runningMode: 'IMAGE',
           numFaces: 1,
         });
-      } catch (gpuError) {
-        console.warn('Không khởi tạo được GPU delegate cho FaceLandmarker, chuyển sang CPU:', gpuError);
+      } catch {
         try {
           faceLandmarker = await FaceLandmarker.createFromOptions(visionTasks, {
-            baseOptions: {
-              modelAssetPath: landmarkerModelPath,
-              delegate: 'CPU',
-            },
+            baseOptions: { modelAssetPath: landmarkerModelCdn, delegate: 'CPU' },
             runningMode: 'IMAGE',
             numFaces: 1,
           });
@@ -76,27 +82,29 @@ export async function initModels(onProgress?: (status: string) => void): Promise
       }
 
       onProgress?.('Đang tải mô hình Tách nền Selfie...');
+      const tryLoadImageSegmenter = async (modelPath: string) => {
+        try {
+          return await ImageSegmenter.createFromOptions(visionTasks, {
+            baseOptions: { modelAssetPath: modelPath, delegate: 'GPU' },
+            runningMode: 'IMAGE',
+            outputCategoryMask: false,
+            outputConfidenceMasks: true,
+          });
+        } catch {
+          return await ImageSegmenter.createFromOptions(visionTasks, {
+            baseOptions: { modelAssetPath: modelPath, delegate: 'CPU' },
+            runningMode: 'IMAGE',
+            outputCategoryMask: false,
+            outputConfidenceMasks: true,
+          });
+        }
+      };
+
       try {
-        imageSegmenter = await ImageSegmenter.createFromOptions(visionTasks, {
-          baseOptions: {
-            modelAssetPath: selfieModelPath,
-            delegate: 'GPU',
-          },
-          runningMode: 'IMAGE',
-          outputCategoryMask: false,
-          outputConfidenceMasks: true,
-        });
-      } catch (gpuError) {
-        console.warn('Không khởi tạo được GPU delegate cho ImageSegmenter, chuyển sang CPU:', gpuError);
-        imageSegmenter = await ImageSegmenter.createFromOptions(visionTasks, {
-          baseOptions: {
-            modelAssetPath: selfieModelPath,
-            delegate: 'CPU',
-          },
-          runningMode: 'IMAGE',
-          outputCategoryMask: false,
-          outputConfidenceMasks: true,
-        });
+        imageSegmenter = await tryLoadImageSegmenter(selfieModelLocal);
+      } catch {
+        console.warn('Không tải được ImageSegmenter local, dùng CDN...');
+        imageSegmenter = await tryLoadImageSegmenter(selfieModelCdn);
       }
 
       onProgress?.('Hoàn tất tải các mô hình AI!');

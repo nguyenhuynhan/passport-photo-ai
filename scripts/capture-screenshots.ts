@@ -1,10 +1,11 @@
+// @ts-nocheck
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
 
 import { createServer } from 'vite';
-import puppeteer from 'puppeteer';
+// import puppeteer from 'puppeteer'; // puppeteer removed in AI Studio environment
 import path from 'path';
 import fs from 'fs';
 
