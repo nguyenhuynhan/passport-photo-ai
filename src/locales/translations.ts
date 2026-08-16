@@ -160,7 +160,7 @@ export const TRANSLATIONS: Record<Language, Translations> = {
 
     guidelinesTitle: 'Quy định ảnh nộp Cổng dịch vụ công Bộ Công An:',
     guidelineItem1: 'Kích thước 4x6 cm (đã tự động xuất 1200x1800 pixel, chuẩn 300 DPI, vượt mức tối thiểu 480px).',
-    guidelineItem2: 'Khuôn mặt hướng thẳng, lộ rõ 2 vành tai và trán, chiếm khoảng 75% chiều cao ảnh.',
+    guidelineItem2: 'Khuôn mặt hướng thẳng, lộ rõ 2 vành tai và trán, chiếm khoảng 75% diện tích ảnh; không cắt sát cổ.',
     guidelineItem3: 'KHÔNG đeo kính (kể cả kính cận), không đội mũ, trang phục lịch sự, phông nền trắng tinh.',
     guidelineItem4: 'Dung lượng file dưới 1MB (định dạng JPG/JPEG), ảnh chụp mới không quá 6 tháng.',
 
@@ -234,7 +234,7 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     presetCustomCountry: 'TUỲ CHỌN',
 
     presetVi4x6Name: 'Ảnh Hộ chiếu Việt Nam (4x6 cm)',
-    presetVi4x6Desc: 'Chuẩn Cổng dịch vụ công Bộ Công An: Nền trắng tinh, lộ rõ 2 vành tai & trán, không đeo kính, mặt chiếm 75% chiều cao. Xuất độ phân giải 1200x1800px (300DPI).',
+    presetVi4x6Desc: 'Chuẩn Cổng dịch vụ công Bộ Công An: nền trắng, lộ rõ 2 vành tai và trán, không đeo kính, khuôn mặt chiếm khoảng 75% diện tích ảnh; khung hình giữ trọn cổ, cổ áo và vai. Xuất 1200x1800px (300 DPI).',
     presetVi3x4Name: 'Ảnh Chứng chỉ / Hồ sơ Việt Nam (3x4 cm)',
     presetVi3x4Desc: 'Nền trắng hoặc nền xanh dương. Thường dùng cho chứng chỉ, bằng lái xe, thẻ học sinh/sinh viên.',
     presetChinaName: 'Ảnh Hộ chiếu / Visa Trung Quốc (3.3x4.8 cm)',
@@ -349,7 +349,7 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     presetCustomCountry: 'CUSTOM',
 
     presetVi4x6Name: 'Vietnam Passport Photo (4x6 cm)',
-    presetVi4x6Desc: 'White background. Head and shoulders straight. Head takes up 70-80% of height.',
+    presetVi4x6Desc: 'Vietnam portal framing: white background, face forward, both ears visible, with the full neck, collar, and shoulders retained.',
     presetVi3x4Name: 'Vietnam ID / License Photo (3x4 cm)',
     presetVi3x4Desc: 'White or light blue background. Used for licenses, student cards, and certificates.',
     presetChinaName: 'Chinese Passport / Visa Photo (3.3x4.8 cm)',
@@ -464,7 +464,7 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     presetCustomCountry: '自定义',
 
     presetVi4x6Name: '越南护照照片 (4x6 cm)',
-    presetVi4x6Desc: '白底，头部和肩膀端正，头部占照片高度 70-80%。',
+    presetVi4x6Desc: '越南护照照片：白色背景，正面露出双耳，并完整保留颈部、衣领和肩部。',
     presetVi3x4Name: '越南证件 / 证书照片 (3x4 cm)',
     presetVi3x4Desc: '白底或蓝底，适用于驾照、学生证及各类证书。',
     presetChinaName: '中国护照 / 签证照片 (3.3x4.8 cm)',

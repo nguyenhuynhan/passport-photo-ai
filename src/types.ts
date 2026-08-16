@@ -39,14 +39,16 @@ export const PHOTO_PRESETS: Record<PassportStandard, PhotoPreset> = {
     widthMm: 40,
     heightMm: 60,
     aspectRatio: 2 / 3,
-    faceHeightMinPercent: 70,
-    faceHeightMaxPercent: 80,
+    faceHeightMinPercent: 58,
+    faceHeightMaxPercent: 65,
     defaultBgColor: '#FFFFFF',
-    description: 'Chuẩn ICAO Doc 9303 & Cổng dịch vụ công Bộ Công An: Nền trắng tinh. Mặt chiếm 70%-80% chiều cao ảnh (từ cằm đến đỉnh đầu/tóc khoảng 42-48mm). Xuất độ phân giải 1200x1800px (300 DPI).',
+    description: 'Theo Cổng dịch vụ công Bộ Công An: ảnh 4x6 nền trắng, khuôn mặt chiếm khoảng 75% diện tích ảnh. Khung tự động giữ trọn cổ, cổ áo và vai; xuất 1200x1800px (300 DPI).',
     overlaySpecs: {
-      headTopPercent: 7,
-      chinPercent: 82,
-      eyeLinePercent: 42,
+      // A 62% head-height crop preserves the official ~75% facial-area guidance
+      // without producing the overly close, neck-cut framing rejected by reviewers.
+      headTopPercent: 10,
+      chinPercent: 72,
+      eyeLinePercent: 40,
     }
   },
   [PassportStandard.VIETNAM_3x4]: {

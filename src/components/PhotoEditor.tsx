@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { PhotoPreset, PassportStandard, ImageAdjustments, DEFAULT_ADJUSTMENTS, BG_COLOR_OPTIONS } from '../types';
 import { detectFace, detectFaceLandmarks, segmentSelfie, segmentHighQuality, applyHighQualitySegmentationMask } from '../utils/ai';
+import { setJpegDpi } from '../utils/jpeg';
 import { Language, TRANSLATIONS } from '../locales/translations';
 
 interface PhotoEditorProps {
@@ -123,7 +124,8 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', fastMod
       if (!displayCanvas) return;
       try {
         const mimeType = (removeBg && bgColor === 'transparent') ? 'image/png' : 'image/jpeg';
-        const finalDataUrl = displayCanvas.toDataURL(mimeType, 0.98);
+        const rawDataUrl = displayCanvas.toDataURL(mimeType, 0.98);
+        const finalDataUrl = mimeType === 'image/jpeg' ? setJpegDpi(rawDataUrl, 300) : rawDataUrl;
         onCropChange(finalDataUrl);
       } catch (err) {
         console.error('Error auto-exporting canvas photo:', err);
@@ -543,10 +545,9 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', fastMod
         
         let calculatedZoom = headScaleNeeded / baseScale;
 
-        // Target center of head on canvas derived from Top Head and Chin guidelines
-        const targetHeadCenterPercent = (preset.overlaySpecs.headTopPercent + preset.overlaySpecs.chinPercent) / 2;
-        const targetHeadCenterPxOnCanvas = (targetHeadCenterPercent / 100) * standardCanvasHeight;
-        const normHeadCenterY = (normTopHeadY + normChinY) / 2;
+        // Anchor the eyes to the prescribed line. Centering only the head can put the
+        // eyes too high and leaves too little neck below the chin on mobile portraits.
+        const targetEyeLinePxOnCanvas = (preset.overlaySpecs.eyeLinePercent / 100) * standardCanvasHeight;
 
         const maxAllowedZoom = 10.0;
         const minAllowedZoom = 0.20;
@@ -559,13 +560,13 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', fastMod
 
         // Account for face displacement caused by image rotation around its center
         const dxImageCenter = (normFaceCenterX - 0.5) * iW;
-        const dyImageCenter = (normHeadCenterY - 0.5) * iH;
+        const dyImageCenter = (normEyeCenterY - 0.5) * iH;
 
         const dxRotated = dxImageCenter * Math.cos(rad) - dyImageCenter * Math.sin(rad);
         const dyRotated = dxImageCenter * Math.sin(rad) + dyImageCenter * Math.cos(rad);
 
         const rawOffsetX = -dxRotated * finalScale;
-        const rawOffsetY = targetHeadCenterPxOnCanvas - (standardCanvasHeight / 2) - dyRotated * finalScale;
+        const rawOffsetY = targetEyeLinePxOnCanvas - (standardCanvasHeight / 2) - dyRotated * finalScale;
 
         const maxOffsetX = (iW * finalScale + standardCanvasWidth) / 2;
         const maxOffsetY = (iH * finalScale + standardCanvasHeight) / 2;
@@ -752,7 +753,7 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', fastMod
     if (!displayCanvas) return;
 
     // Export with highest quality
-    const finalDataUrl = displayCanvas.toDataURL('image/jpeg', 0.98);
+    const finalDataUrl = setJpegDpi(displayCanvas.toDataURL('image/jpeg', 0.98), 300);
     onCropChange(finalDataUrl);
   };
 

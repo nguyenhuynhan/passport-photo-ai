@@ -45,7 +45,6 @@ export function calculateAutoAdjustments(landmarks: ImageLandmarks, preset = PHO
   
   // Cap max hair height to 1.15x eye-to-chin distance so tall hair does not distort anatomical head center
   const effectiveTopHeadY = Math.max(normEyeCenterY - 1.15 * eyeToChin, normTopHeadY);
-  const normHeadCenterY = (effectiveTopHeadY + normChinY) / 2;
   const normFullHeadHeight = Math.max(0.18, normChinY - effectiveTopHeadY);
 
   const standardCanvasHeight = 1800;
@@ -59,8 +58,7 @@ export function calculateAutoAdjustments(landmarks: ImageLandmarks, preset = PHO
 
   let calculatedZoom = headScaleNeeded / baseScale;
 
-  const targetHeadCenterPercent = (preset.overlaySpecs.headTopPercent + preset.overlaySpecs.chinPercent) / 2;
-  const targetHeadCenterPxOnCanvas = (targetHeadCenterPercent / 100) * standardCanvasHeight;
+  const targetEyeLinePxOnCanvas = (preset.overlaySpecs.eyeLinePercent / 100) * standardCanvasHeight;
 
   const isPortrait = sourceHeight >= sourceWidth;
   const maxAllowedZoom = isPortrait ? 8.0 : 10.0;
@@ -71,7 +69,7 @@ export function calculateAutoAdjustments(landmarks: ImageLandmarks, preset = PHO
   const finalScale = baseScale * zoom;
 
   const rawOffsetX = (0.5 - normFaceCenterX) * sourceWidth * finalScale;
-  const rawOffsetY = targetHeadCenterPxOnCanvas - (standardCanvasHeight / 2) - (normHeadCenterY - 0.5) * sourceHeight * finalScale;
+  const rawOffsetY = targetEyeLinePxOnCanvas - (standardCanvasHeight / 2) - (normEyeCenterY - 0.5) * sourceHeight * finalScale;
 
   const maxOffsetX = (sourceWidth * finalScale + standardCanvasWidth) / 2;
   const maxOffsetY = (sourceHeight * finalScale + standardCanvasHeight) / 2;
@@ -217,18 +215,13 @@ export function runAutomationSuite() {
         passed = false;
       }
 
-      if (verification.topHeadErrorPx > 25) {
-        console.error(`     ❌ ERROR: Top Head error (${verification.topHeadErrorPx.toFixed(1)}px) exceeds 25px tolerance for preset ${preset.name}`);
-        passed = false;
-      }
-
-      if (verification.chinErrorPx > 25) {
-        console.error(`     ❌ ERROR: Chin error (${verification.chinErrorPx.toFixed(1)}px) exceeds 25px tolerance for preset ${preset.name}`);
-        passed = false;
-      }
-
       if (verification.headHeightErrorPx > 25) {
         console.error(`     ❌ ERROR: Head Height error (${verification.headHeightErrorPx.toFixed(1)}px) exceeds 25px tolerance for preset ${preset.name}`);
+        passed = false;
+      }
+
+      if (verification.eyeErrorPx > 25) {
+        console.error(`     ❌ ERROR: Eye-line error (${verification.eyeErrorPx.toFixed(1)}px) exceeds 25px tolerance for preset ${preset.name}`);
         passed = false;
       }
     }

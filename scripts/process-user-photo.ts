@@ -7,10 +7,12 @@ import { createServer } from 'vite';
 import puppeteer from 'puppeteer';
 import path from 'path';
 import fs from 'fs';
+import { setJpegDpi } from '../src/utils/jpeg';
 
 const ARTIFACT_DIR = 'C:/Users/nha/.gemini/antigravity/brain/c1fd293c-3339-44dd-a7fd-af7967b915e1';
 const LOCAL_SCREENSHOT_DIR = path.resolve(process.cwd(), 'screenshots');
 const ARTIFACT_SCREENSHOT_DIR = path.resolve(ARTIFACT_DIR, 'screenshots');
+const OUTPUT_DIR = path.resolve(process.cwd(), 'output');
 
 async function processUserUploadedPhoto() {
   console.log('===========================================================');
@@ -19,6 +21,7 @@ async function processUserUploadedPhoto() {
 
   fs.mkdirSync(LOCAL_SCREENSHOT_DIR, { recursive: true });
   fs.mkdirSync(ARTIFACT_SCREENSHOT_DIR, { recursive: true });
+  fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 
   // 1. Start local Vite server
   console.log('[1/3] Starting local Vite server...');
@@ -80,6 +83,24 @@ async function processUserUploadedPhoto() {
   }
   fs.copyFileSync(step2LocalPath, step2ArtifactPath);
   console.log(`  ✅ Step 2 Preview saved: screenshots/${step2Filename}`);
+
+  // Persist the actual 1200x1800 JPEG from the editor canvas before leaving Step 2.
+  const croppedPhotoDataUrl = await page.evaluate(() => {
+    const passportCanvas = Array.from(document.querySelectorAll('canvas'))
+      .find((canvas) => canvas.width === 1200 && canvas.height === 1800);
+    return passportCanvas?.toDataURL('image/jpeg', 0.94) ?? null;
+  });
+  if (!croppedPhotoDataUrl?.startsWith('data:image/jpeg;base64,')) {
+    throw new Error('The editor did not produce a 1200x1800 JPEG passport photo.');
+  }
+  const photoFilename = 'anh-ho-chieu-4x6-viet-nam.jpg';
+  const photoOutputPath = path.join(OUTPUT_DIR, photoFilename);
+  const dpiTaggedDataUrl = setJpegDpi(croppedPhotoDataUrl, 300);
+  fs.writeFileSync(
+    photoOutputPath,
+    Buffer.from(dpiTaggedDataUrl.replace(/^data:image\/jpeg;base64,/, ''), 'base64')
+  );
+  console.log(`  ✅ Passport JPEG saved: output/${photoFilename}`);
 
   // Now click "Next" / "Tiếp theo" button to proceed to Step 3 (Export Final Photo)
   console.log('[3/3] Exporting high-resolution 4x6 passport photo for user image...');
