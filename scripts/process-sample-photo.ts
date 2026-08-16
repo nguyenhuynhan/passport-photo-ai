@@ -11,6 +11,7 @@ import fs from 'fs';
 const ARTIFACT_DIR = 'C:/Users/nha/.gemini/antigravity/brain/c1fd293c-3339-44dd-a7fd-af7967b915e1';
 const LOCAL_SCREENSHOT_DIR = path.resolve(process.cwd(), 'screenshots');
 const ARTIFACT_SCREENSHOT_DIR = path.resolve(ARTIFACT_DIR, 'screenshots');
+const TEST_PHOTO = process.env.TEST_PHOTO || '/test-man.jpg';
 
 async function processAndExportPassportPhoto() {
   console.log('===========================================================');
@@ -39,7 +40,7 @@ async function processAndExportPassportPhoto() {
   const page = await browser.newPage();
   await page.setViewport({ width: 1280, height: 900, deviceScaleFactor: 1 });
 
-  await page.goto(`${serverUrl}?autotest=true`, { waitUntil: 'domcontentloaded' });
+  await page.goto(`${serverUrl}?autotest=true&photo=${encodeURIComponent(TEST_PHOTO)}`, { waitUntil: 'domcontentloaded' });
 
   // Wait for AI processing to finish in Step 2
   await page.waitForFunction(
@@ -47,7 +48,7 @@ async function processAndExportPassportPhoto() {
       const editorTest = (window as any).passportEditorTest;
       return editorTest && !editorTest.isProcessing();
     },
-    { timeout: 15000 }
+    { timeout: 120000 }
   );
 
   // Short delay for canvas draw loop to settle

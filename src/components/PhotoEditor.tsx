@@ -11,6 +11,7 @@ import {
 import { PhotoPreset, PassportStandard, ImageAdjustments, DEFAULT_ADJUSTMENTS, BG_COLOR_OPTIONS } from '../types';
 import { detectFace, detectFaceLandmarks, segmentSelfie, segmentHighQuality, applyHighQualitySegmentationMask } from '../utils/ai';
 import { setJpegDpi } from '../utils/jpeg';
+import { fusePortraitMasks } from '../utils/mask';
 import { Language, TRANSLATIONS } from '../locales/translations';
 
 interface PhotoEditorProps {
@@ -267,7 +268,24 @@ export default function PhotoEditor({ imageSrc, preset, language = 'vi', fastMod
             maskData = rmbgRes.maskData;
             mWidth = rmbgRes.width;
             mHeight = rmbgRes.height;
-            setActiveEngineUsed(`RMBG IS-Net (${requestedModel === 'isnet_fp16' ? 'FP16 Heavy' : 'Quint8 Quantized'})`);
+
+            // RMBG is precise around hair, while MediaPipe is more robust for the
+            // broad torso. Fuse them to recover shirts/jackets missed near the crop.
+            const rescueResult = await segmentSelfie(img);
+            if (rescueResult?.confidenceMasks?.length) {
+              const personMaskIndex = rescueResult.confidenceMasks.length > 1 ? 1 : 0;
+              const rescueMask = rescueResult.confidenceMasks[personMaskIndex];
+              maskData = fusePortraitMasks(
+                maskData,
+                mWidth,
+                mHeight,
+                rescueMask.getAsFloat32Array(),
+                rescueMask.width,
+                rescueMask.height,
+              );
+            }
+
+            setActiveEngineUsed(`RMBG IS-Net + MediaPipe Rescue (${requestedModel === 'isnet_fp16' ? 'FP16 Heavy' : 'Quint8 Quantized'})`);
             updateProgress(55, 'Đã hoàn tất phân tách phông nền!');
           }
         }

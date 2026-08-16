@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
-    "test": "tsx src/utils/ai.test.ts",
+    "test": "tsx src/utils/ai.test.ts && tsx src/utils/mask.test.ts",
     "test:compare": "tsx src/utils/modelComparison.test.ts",
     "test:alignment": "tsx src/utils/alignmentTest.ts",
     "test:screenshot": "tsx scripts/capture-screenshots.ts",

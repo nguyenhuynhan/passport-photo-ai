@@ -5,6 +5,7 @@
 
 import { FilesetResolver, FaceDetector, FaceLandmarker, ImageSegmenter } from '@mediapipe/tasks-vision';
 import { removeBackground } from '@imgly/background-removal';
+import { estimateSourceBackgroundRgb, normalizeRmbgAlpha } from './mask';
 
 let visionTasks: any = null;
 let faceDetector: FaceDetector | null = null;
@@ -312,15 +313,7 @@ export async function segmentHighQuality(
 
     for (let i = 0; i < maskData.length; i++) {
       const rawAlpha = data[i * 4 + 3] / 255;
-      // Aggressive background noise cutoff (rawAlpha < 0.55) to eliminate grey wall artifacts
-      if (rawAlpha < 0.55) {
-        maskData[i] = 0;
-      } else if (rawAlpha > 0.85) {
-        maskData[i] = 1;
-      } else {
-        const t = (rawAlpha - 0.55) / 0.30;
-        maskData[i] = t * t * (3 - 2 * t);
-      }
+      maskData[i] = normalizeRmbgAlpha(rawAlpha);
     }
 
     return {
@@ -352,6 +345,7 @@ export function applyHighQualitySegmentationMask(
 ) {
   const imgData = ctx.getImageData(0, 0, workWidth, workHeight);
   const data = imgData.data;
+  const [sourceBgR, sourceBgG, sourceBgB] = estimateSourceBackgroundRgb(data, workWidth, workHeight);
 
   let bgR = 255, bgG = 255, bgB = 255, bgA = 1;
   if (bgColor === 'transparent') {
@@ -407,11 +401,12 @@ export function applyHighQualitySegmentationMask(
         const origR = data[pixelIndex];
         const origG = data[pixelIndex + 1];
         const origB = data[pixelIndex + 2];
-        const colorDiffToBg = Math.hypot(origR - bgR, origG - bgG, origB - bgB);
+        const colorDiffToBg = Math.hypot(origR - sourceBgR, origG - sourceBgG, origB - sourceBgB);
 
-        if (colorDiffToBg < 32 && bgColor !== 'transparent') {
-          // Pixel color matches background wall closely => clean up background noise
-          confidence = smoothT * Math.pow(colorDiffToBg / 32, 1.5);
+        if (colorDiffToBg < 24) {
+          // Only suppress pixels matching the source backdrop. Comparing against
+          // the requested white output used to erase light-colored clothing.
+          confidence = smoothT * Math.pow(colorDiffToBg / 24, 1.5);
         } else {
           confidence = smoothT;
         }
