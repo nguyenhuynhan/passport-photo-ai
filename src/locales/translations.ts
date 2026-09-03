@@ -161,7 +161,7 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     guidelinesTitle: 'Quy định ảnh nộp Cổng dịch vụ công Bộ Công An:',
     guidelineItem1: 'Kích thước 4x6 cm (đã tự động xuất 1200x1800 pixel, chuẩn 300 DPI, vượt mức tối thiểu 480px).',
     guidelineItem2: 'Khuôn mặt hướng thẳng, lộ rõ 2 vành tai và trán, chiếm khoảng 75% diện tích ảnh; không cắt sát cổ.',
-    guidelineItem3: 'KHÔNG đeo kính (kể cả kính cận), không đội mũ, trang phục lịch sự, phông nền trắng tinh.',
+    guidelineItem3: 'KHÔNG đeo kính hoặc đội mũ. Mặc áo có cổ màu tối, trơn; tránh áo trắng/sáng hoặc nhiều sọc vì VNeID dễ nhầm với nền.',
     guidelineItem4: 'Dung lượng file dưới 1MB (định dạng JPG/JPEG), ảnh chụp mới không quá 6 tháng.',
 
     editingPresetLabel: 'Đang chỉnh sửa:',
@@ -208,8 +208,8 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     bgLightGrey: 'Xám sáng (Light Grey)',
     bgTransparent: 'Trong suốt (PNG)',
 
-    singlePhotoCompleted: 'Ảnh Hộ Chiếu Chuẩn Dịch Vụ Công',
-    singlePhotoSpecs: 'File JPG 1200x1800px (300 DPI) - Đạt chuẩn Cổng dịch vụ công Bộ Công An',
+    singlePhotoCompleted: 'Ảnh 4x6 đã tạo — cần VNeID xác nhận',
+    singlePhotoSpecs: 'File JPG 1200x1800px (300 DPI). Kiểm tra cục bộ không thay thế kết quả xác thực của VNeID.',
     downloadSingleBtn: 'Tải ảnh nộp Cổng dịch vụ công (.JPG)',
     printGridTitle: 'Dàn Trang In Ảnh Hộ Chiếu',
     printGridDesc: 'Tự động sắp xếp nhiều ảnh lên khổ giấy in tiêu chuẩn sẵn sàng mang đi in.',
@@ -276,7 +276,7 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     guidelinesTitle: 'Official Passport Photo Requirements:',
     guidelineItem1: 'Face facing straight ahead, looking directly into camera.',
     guidelineItem2: 'Neutral expression, no smiling showing teeth, eyes wide open.',
-    guidelineItem3: 'Even lighting across face, no harsh dark shadows.',
+    guidelineItem3: 'Wear a plain, dark collared top; avoid white, pale, or striped clothing that can merge with the background.',
     guidelineItem4: 'No sunglasses, no hats (except religious attire).',
 
     editingPresetLabel: 'Editing:',
@@ -391,7 +391,7 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     guidelinesTitle: '官方护照照片合规要求：',
     guidelineItem1: '头部端正，眼睛直视镜头。',
     guidelineItem2: '表情自然中性，请勿露齿笑，双眼睁开。',
-    guidelineItem3: '面部光照均匀，无浓重阴影。',
+    guidelineItem3: '请穿深色纯色有领上衣；避免白色、浅色或条纹衣物与白色背景混在一起。',
     guidelineItem4: '请勿佩戴墨镜或帽子（宗教服饰除外）。',
 
     editingPresetLabel: '正在编辑：',
